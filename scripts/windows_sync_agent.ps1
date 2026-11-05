@@ -7,7 +7,7 @@ param(
     [string]$ServerUrl = "http://10.20.0.81:8080/api/upload/krizik-supl-tajny-klic-2026",
     [string]$TargetFileName = "suplprehtrid.html",
     [int]$IntervalSeconds = 15,
-    [string]$LogFile = "C:\Krizik\sync.log"
+    [string]$LogFile = "$env:USERPROFILE\Krizik\sync.log"
 )
 
 $ErrorActionPreference = "Continue"
