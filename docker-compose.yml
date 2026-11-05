@@ -1,0 +1,33 @@
+services:
+  suplovani-viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: krizik-suplovani-viewer
+    restart: unless-stopped
+    ports:
+      - "${SUPL_PORT:-8080}:8000"
+    environment:
+      - TZ=Europe/Prague
+      - SUPL_WATCH_DIR=/app/watch_exports
+      - SUPL_DB_PATH=/app/data/suplovani.db
+      - SUPL_LOG_DIR=/app/logs
+      - SUPL_POLL_INTERVAL_SECONDS=${SUPL_POLL_INTERVAL_SECONDS:-30}
+      - SUPL_STABILITY_SECONDS=${SUPL_STABILITY_SECONDS:-2}
+      - SUPL_RETENTION_DAYS=${SUPL_RETENTION_DAYS:-14}
+      - SUPL_STALE_THRESHOLD_HOURS=${SUPL_STALE_THRESHOLD_HOURS:-24}
+      - SUPL_ANONYMIZE=${SUPL_ANONYMIZE:-false}
+      - SUPL_ADMIN_USERNAME=${SUPL_ADMIN_USERNAME:-admin}
+      - SUPL_ADMIN_PASSWORD=${SUPL_ADMIN_PASSWORD:-}
+      - SUPL_ADMIN_ALLOWED_CIDRS=${SUPL_ADMIN_ALLOWED_CIDRS:-127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      - SUPL_UPLOAD_TOKEN=${SUPL_UPLOAD_TOKEN:-}
+    volumes:
+      # Sdílená / sledovaná složka s HTML exporty (SMB mount např. /mnt/supl nebo lokální upload adresář)
+      - ${HOST_EXPORTS_DIR:-./watch_exports}:/app/watch_exports
+      - ./data:/app/data
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M

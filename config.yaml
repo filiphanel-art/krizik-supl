@@ -1,0 +1,41 @@
+# Výchozí konfigurace Suplování Viewer
+# Všechny hodnoty lze přepsat proměnnými prostředí (viz .env.example)
+
+watch_dir: "./samples"
+file_pattern: "*.htm*"
+db_path: "./data/suplovani.db"
+log_dir: "./logs"
+
+# Interval záložního pollingu pro síťové disky SMB/CIFS (v sekundách)
+poll_interval_seconds: 30.0
+
+# Doba, po kterou musí být velikost a mtime souboru stabilní před čtením (v sekundách)
+stability_seconds: 2.0
+
+# Kolik dní historie uchovávat v databázi (starší dny se mažou automaticky)
+retention_days: 14
+
+# Po kolika hodinách od "datum výpisu" zobrazit varování o zastaralosti dat
+stale_threshold_hours: 24.0
+
+# Anonymizovaný režim (false = plná jména v intranetu, true = pouze zkratky/iniciály)
+anonymize: false
+
+# Maximální povolená velikost vstupního HTML souboru (5 MB)
+max_file_size_bytes: 5242880
+
+host: "0.0.0.0"
+port: 8000
+
+# Přístup na /admin/status (povolené intranetové rozsahy; volitelně heslo v SUPL_ADMIN_PASSWORD)
+admin_username: "admin"
+admin_password: ""
+admin_allowed_cidrs:
+  - "127.0.0.1/32"
+  - "::1/128"
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+
+# Volitelný ruční slovník zkratek učitelů (automaticky se doplňuje ze samotných exportů)
+teacher_codes: {}

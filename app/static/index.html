@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1674bb">
+  <meta name="description" content="Aktuální suplování a změny v rozvrhu – VOŠ a SPŠE Františka Křižíka">
+  <title>Suplování – VOŠ a SPŠE Františka Křižíka</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css?v=8">
+</head>
+<body class="tab-grid">
+  <header class="app-header">
+    <div class="header-inner">
+      <div>
+        <h1 class="school-title" id="school-name">Vyšší odborná škola a Střední průmyslová škola elektrotechnická Františka Křižíka</h1>
+        <p class="school-subtitle" id="header-subtitle">Přehled suplování a změn v rozvrhu</p>
+      </div>
+      <div class="header-actions">
+        <button
+          type="button"
+          id="btn-fullscreen"
+          class="btn-fs"
+          title="Celá obrazovka s automatickým posunem"
+          aria-label="Celá obrazovka s automatickým posunem"
+        >
+          <svg
+            class="icon"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+          </svg>
+          <span>Celá obrazovka</span>
+        </button>
+        <div class="meta-box" aria-live="polite">
+          <div id="exported-at-label">Datum výpisu: načítám…</div>
+          <div id="updated-at-label">Poslední kontrola: —</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" id="main-container">
+    <!-- Varovné bannery (zobrazí se pouze při chybě, zastaralých datech nebo offline) -->
+    <div id="banner-parse-error" class="banner banner-error hidden" role="alert">
+      <div>
+        <strong>Nelze zpracovat nový export.</strong>
+        <span id="banner-parse-error-text">Zobrazují se poslední platná data.</span>
+      </div>
+    </div>
+
+    <div id="banner-stale" class="banner banner-warning hidden" role="status">
+      <div id="banner-stale-text">Upozornění: Data suplování jsou starší než nastavený limit.</div>
+    </div>
+
+    <div id="banner-offline" class="banner banner-offline hidden" role="status">
+      <div>Jste v režimu offline. Zobrazuje se poslední uložená verze suplování z paměti zařízení.</div>
+    </div>
+
+    <!-- Kompaktní horní lišta: výběr dne + nadpis dne + rychlý filtr třídy -->
+    <section class="controls-panel" aria-label="Výběr dne a filtrování">
+      <div class="controls-top-row">
+        <div class="date-tabs" id="date-tabs" role="tablist" aria-label="Výběr dne"></div>
+        <div class="inline-filter">
+          <select id="entity-select" class="filter-select" aria-label="Filtr třídy">
+            <option value="">Všechny třídy</option>
+          </select>
+          <input
+            type="search"
+            id="search-input"
+            class="filter-input"
+            placeholder="Hledat třídu, učitele, učebnu…"
+            aria-label="Hledat v rozvrhu"
+          >
+          <button type="button" id="btn-clear-filter" class="btn-clear hidden">Zrušit</button>
+        </div>
+        <h2 class="day-heading" id="day-heading">Načítám rozvrh…</h2>
+      </div>
+    </section>
+
+    <!-- Hlavní tabulka celého dne na 1 stránku -->
+    <section id="grid-view" class="grid-view" aria-live="polite" aria-label="Přehled dne v tabulce"></section>
+  </main>
+
+  <button type="button" id="btn-kiosk-exit" class="kiosk-exit hidden" aria-label="Ukončit celou obrazovku">
+    Ukončit celou obrazovku (Esc)
+  </button>
+
+  <script src="app.js?v=8"></script>
+</body>
+</html>

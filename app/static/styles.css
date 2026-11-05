@@ -1,0 +1,561 @@
+:root {
+  --bg-page: #f8fafc;
+  --bg-card: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border-color: #cbd5e1;
+  --primary: #1674bb;
+  --primary-hover: #125e99;
+  --focus-ring: #1674bb;
+
+  /* WCAG AA barvy pro odznaky změn (kontrast >= 4.5:1) */
+  --supl-fg: #0f4c81;
+  --supl-bg: #dbeafe;
+  --supl-border: #93c5fd;
+
+  --odpada-fg: #991b1b;
+  --odpada-bg: #fee2e2;
+  --odpada-border: #fca5a5;
+
+  --spojeno-fg: #5b21b6;
+  --spojeno-bg: #ede9fe;
+  --spojeno-border: #c4b5fd;
+
+  --ucebna-fg: #92400e;
+  --ucebna-bg: #fef3c7;
+  --ucebna-border: #fcd34d;
+
+  --presun-fg: #115e59;
+  --presun-bg: #ccfbf1;
+  --presun-border: #5eead4;
+
+  --navic-fg: #166534;
+  --navic-bg: #dcfce7;
+  --navic-border: #86efac;
+
+  --akce-fg: #1e293b;
+  --akce-bg: #e2e8f0;
+  --akce-border: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html:fullscreen,
+html:-webkit-full-screen {
+  overflow-y: auto !important;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--text-main);
+  background-color: var(--bg-page);
+}
+
+.app-header {
+  background: var(--primary);
+  color: #ffffff;
+  padding: 0.55rem 1rem;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.14);
+}
+
+.header-inner {
+  max-width: 1840px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.school-title {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+.school-subtitle {
+  display: none;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.btn-fs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border: 1.5px solid rgba(255, 255, 255, 0.82);
+  border-radius: 0.4rem;
+  padding: 0.38rem 0.75rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-fs:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.btn-fs:focus-visible,
+.kiosk-exit:focus-visible {
+  outline: 3px solid #fde68a;
+  outline-offset: 2px;
+}
+
+.meta-box {
+  font-size: 0.82rem;
+  background: rgba(255, 255, 255, 0.14);
+  padding: 0.3rem 0.65rem;
+  border-radius: 0.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.9rem;
+}
+
+.container {
+  max-width: 1840px;
+  margin: 0 auto;
+  padding: 0.5rem 0.85rem;
+}
+
+/* Varovné bannery */
+.banner {
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.85rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border: 2px solid transparent;
+}
+
+.banner-error {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border-color: #f87171;
+}
+
+.banner-warning {
+  background-color: #fffbeb;
+  color: #92400e;
+  border-color: #fbbf24;
+}
+
+.banner-offline {
+  background-color: #f1f5f9;
+  color: #1e293b;
+  border-color: #64748b;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Ovládací panel: výběr dne + filtr + nadpis dne v jednom řádku */
+.controls-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.65rem;
+  margin-bottom: 0.45rem;
+}
+
+.controls-top-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.date-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.date-tab {
+  appearance: none;
+  border: 1px solid var(--border-color);
+  background: #f8fafc;
+  color: var(--text-main);
+  padding: 0.3rem 0.65rem;
+  border-radius: 0.4rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.date-tab:hover {
+  background: #e2e8f0;
+}
+
+.date-tab.active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+.date-tab:focus-visible,
+.filter-select:focus-visible,
+.filter-input:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.inline-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.filter-select,
+.filter-input {
+  padding: 0.28rem 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.4rem;
+  font-size: 0.86rem;
+  background: #ffffff;
+  color: var(--text-main);
+}
+
+.filter-input {
+  width: 210px;
+}
+
+.btn-clear {
+  padding: 0.28rem 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.4rem;
+  background: #f1f5f9;
+  color: var(--text-main);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.day-heading {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.week-badge {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: #e2e8f0;
+  padding: 0.1rem 0.5rem;
+  border-radius: 1rem;
+}
+
+/* Odznaky typu změny s SVG ikonou a textem */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  width: fit-content;
+}
+
+.badge svg {
+  flex-shrink: 0;
+}
+
+.badge-SUPLOVANI {
+  color: var(--supl-fg);
+  background: var(--supl-bg);
+  border-color: var(--supl-border);
+}
+
+.badge-ODPADA {
+  color: var(--odpada-fg);
+  background: var(--odpada-bg);
+  border-color: var(--odpada-border);
+}
+
+.badge-SPOJENO {
+  color: var(--spojeno-fg);
+  background: var(--spojeno-bg);
+  border-color: var(--spojeno-border);
+}
+
+.badge-ZMENA_UCEBNY {
+  color: var(--ucebna-fg);
+  background: var(--ucebna-bg);
+  border-color: var(--ucebna-border);
+}
+
+.badge-PRESUN_NA,
+.badge-PRESUN_Z {
+  color: var(--presun-fg);
+  background: var(--presun-bg);
+  border-color: var(--presun-border);
+}
+
+.badge-NAVIC,
+.badge-VYMENA {
+  color: var(--navic-fg);
+  background: var(--navic-bg);
+  border-color: var(--navic-border);
+}
+
+.badge-CELODENNI_AKCE,
+.badge-OSTATNI {
+  color: var(--akce-fg);
+  background: var(--akce-bg);
+  border-color: var(--akce-border);
+}
+
+/* Hlavní tabulka celého dne */
+.grid-view {
+  --gfs: 12.5px;
+  font-size: var(--gfs);
+}
+
+.grid-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.strip-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--primary);
+  border-radius: 0.35rem;
+  padding: 0.28rem 0.6rem;
+  font-size: 0.92em;
+  line-height: 1.28;
+}
+
+.strip-teachers {
+  flex: 2 1 420px;
+}
+
+.strip-rooms,
+.strip-sup {
+  flex: 1 1 200px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.big-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: var(--bg-card);
+}
+
+.big-grid th,
+.big-grid td {
+  border: 1px solid var(--border-color);
+  padding: 2px 3px;
+  vertical-align: top;
+}
+
+.big-grid thead th {
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.28em 0;
+}
+
+.big-grid th.gh-class {
+  width: 4em;
+  text-align: center;
+  background: #eff6ff;
+  color: var(--primary);
+  vertical-align: middle;
+  font-weight: 700;
+}
+
+.big-grid thead th.gh-class {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.gtd {
+  min-width: 0;
+}
+
+.gtd-action {
+  vertical-align: middle;
+}
+
+.gcell {
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-bottom: 2px;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+  display: block;
+}
+
+.gcell:last-child {
+  margin-bottom: 0;
+}
+
+.gcell-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25em;
+}
+
+.gcell-top svg {
+  width: 0.95em;
+  height: 0.95em;
+}
+
+.gcell-group {
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.gcell-room {
+  font-weight: 600;
+}
+
+.gcell-bottom {
+  font-weight: 500;
+}
+
+.grid-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+/* Tabulky pro /admin/status */
+.section-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.section-block h3 {
+  margin: 0 0 0.6rem 0;
+  font-size: 1.05rem;
+  color: var(--primary);
+}
+
+.grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.grid-table th,
+.grid-table td {
+  border: 1px solid var(--border-color);
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+}
+
+.grid-table thead th {
+  background: #f1f5f9;
+  font-weight: 700;
+}
+
+.cell-sub {
+  background: var(--supl-bg);
+  color: var(--supl-fg);
+  font-weight: 700;
+}
+
+.cell-cancel {
+  background: var(--odpada-bg);
+  color: var(--odpada-fg);
+  font-weight: 700;
+}
+
+/* Režim celé obrazovky (kiosk): bez horní lišty a ovládacích prvků */
+body.kiosk .app-header,
+body.kiosk .date-tabs,
+body.kiosk .inline-filter {
+  display: none !important;
+}
+
+body.kiosk .controls-panel {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-bottom: 0.35rem;
+}
+
+body.kiosk .day-heading {
+  font-size: 1.25rem;
+}
+
+body.kiosk .container {
+  max-width: 1920px;
+}
+
+.kiosk-exit {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 100;
+  background: rgba(15, 23, 42, 0.88);
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+
+.kiosk-exit:hover,
+.kiosk-exit:focus-visible {
+  opacity: 1;
+}
+
+@media (max-width: 720px) {
+  .header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .meta-box {
+    width: 100%;
+  }
+  .filter-input {
+    width: 100%;
+  }
+}
