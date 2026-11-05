@@ -26,8 +26,3 @@ services:
       - ${HOST_EXPORTS_DIR:-./watch_exports}:/app/watch_exports
       - ./data:/app/data
       - ./logs:/app/logs
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 512M
