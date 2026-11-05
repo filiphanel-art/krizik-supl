@@ -58,9 +58,8 @@ function Send-SuplovaniFile {
 
     try {
         Write-Host "Odesílám $fileName na server..." -ForegroundColor Cyan
-        $response = Invoke-RestMethod -Uri $ServerUrl -Method Post -Form @{
-            file = Get-Item -Path $FilePath
-        }
+        $response = Invoke-RestMethod -Uri $ServerUrl -Method Post -InFile $FilePath `
+            -ContentType "text/html" -Headers @{ "X-Filename" = $TargetFileName }
         Write-Host "Úspěšně odesláno: $(ConvertTo-Json $response -Compress)" -ForegroundColor Green
     } catch {
         Write-Host "Chyba při odesílání: $($_.Exception.Message)" -ForegroundColor Red
