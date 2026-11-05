@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  // Jednoduché liniové ikony (SVG path), žádné emoji
   const ICONS = {
     swap: "M7 7h11l-3-3M17 17H6l3 3",
     cross: "M6 6l12 12M18 6L6 18",
@@ -27,6 +26,19 @@
     OSTATNI: { icon: "info", label: "Ostatní" }
   };
 
+  const SHORT = {
+    SUPLOVANI: "Supluje",
+    ODPADA: "Odpadá",
+    SPOJENO: "Spojeno",
+    ZMENA_UCEBNY: "Učebna",
+    PRESUN_NA: "Přesun >",
+    PRESUN_Z: "Přesun <",
+    NAVIC: "Navíc",
+    VYMENA: "Výměna",
+    CELODENNI_AKCE: "Akce",
+    OSTATNI: "Změna"
+  };
+
   function svgIcon(name) {
     const NS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(NS, "svg");
@@ -45,20 +57,11 @@
     return svg;
   }
 
-  let savedTab = "list";
-  try {
-    if (localStorage.getItem("krizik_supl_tab") === "grid") savedTab = "grid";
-  } catch (_e) {
-    // Ignoruj
-  }
-
   const state = {
     dates: [],
     selectedDate: "",
     dayData: null,
     status: null,
-    viewMode: "classes", // "classes" | "teachers"
-    tab: savedTab, // "list" | "grid"
     selectedEntity: "",
     searchQuery: "",
     isStaticExport: Boolean(window.__STATIC_EXPORT__),
@@ -68,7 +71,6 @@
   const els = {
     mainContainer: document.getElementById("main-container"),
     schoolName: document.getElementById("school-name"),
-    headerSubtitle: document.getElementById("header-subtitle"),
     exportedAtLabel: document.getElementById("exported-at-label"),
     updatedAtLabel: document.getElementById("updated-at-label"),
     bannerParseError: document.getElementById("banner-parse-error"),
@@ -76,30 +78,12 @@
     bannerStale: document.getElementById("banner-stale"),
     bannerStaleText: document.getElementById("banner-stale-text"),
     bannerOffline: document.getElementById("banner-offline"),
-    bannerDerivedTeacher: document.getElementById("banner-derived-teacher"),
     dateTabs: document.getElementById("date-tabs"),
-    btnViewClasses: document.getElementById("btn-view-classes"),
-    btnViewTeachers: document.getElementById("btn-view-teachers"),
     entitySelect: document.getElementById("entity-select"),
     searchInput: document.getElementById("search-input"),
     btnClearFilter: document.getElementById("btn-clear-filter"),
     dayHeading: document.getElementById("day-heading"),
-    changesContainer: document.getElementById("changes-container"),
-    supervisionsSection: document.getElementById("supervisions-section"),
-    supervisionsContent: document.getElementById("supervisions-content"),
-    absentTeachersSection: document.getElementById("absent-teachers-section"),
-    absentTeachersContent: document.getElementById("absent-teachers-content"),
-    absentClassesSection: document.getElementById("absent-classes-section"),
-    absentClassesContent: document.getElementById("absent-classes-content"),
-    closedRoomsSection: document.getElementById("closed-rooms-section"),
-    closedRoomsContent: document.getElementById("closed-rooms-content"),
-    unrecognizedSection: document.getElementById("unrecognized-section"),
-    unrecognizedContent: document.getElementById("unrecognized-content"),
-    adminLinkWrap: document.getElementById("admin-link-wrap"),
-    gridView: document.getElementById("grid-view"),
-    tabList: document.getElementById("tab-list"),
-    tabGrid: document.getElementById("tab-grid"),
-    filtersRow: document.getElementById("filters-row")
+    gridView: document.getElementById("grid-view")
   };
 
   function el(tag, className, text) {
@@ -192,10 +176,6 @@
   }
 
   function renderBannersAndHeader() {
-    if (state.isStaticExport && els.adminLinkWrap) {
-      els.adminLinkWrap.classList.add("hidden");
-    }
-
     const day = state.dayData;
     const st = state.status || {};
 
@@ -203,30 +183,23 @@
       els.schoolName.textContent = day.school_name;
     }
 
-    if (st.anonymize) {
-      els.headerSubtitle.textContent = "Přehled suplování (anonymizovaný režim – zkratky učitelů)";
-    } else {
-      els.headerSubtitle.textContent = "Automatický přehled suplování a změn v rozvrhu";
-    }
-
     const expDisp =
       (day && day.exported_at_display) ||
       (st.last_success && st.last_success.exported_at) ||
       "—";
-    els.exportedAtLabel.textContent = "Datum výpisu z Bakalářů: " + expDisp;
+    els.exportedAtLabel.textContent = "Výpis: " + expDisp;
 
     const nowStr = new Date().toLocaleTimeString("cs-CZ", {
       timeZone: "Europe/Prague",
       hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit"
+      minute: "2-digit"
     });
-    els.updatedAtLabel.textContent = "Poslední kontrola: " + nowStr;
+    els.updatedAtLabel.textContent = "Kontrola: " + nowStr;
 
     if (st.has_parse_error) {
       els.bannerParseError.classList.remove("hidden");
       els.bannerParseErrorText.textContent =
-        " Zobrazují se poslední platná data. Detail: " + (st.last_error_message || "Chyba formátu HTML.");
+        " Zobrazují se poslední platná data.";
     } else {
       els.bannerParseError.classList.add("hidden");
     }
@@ -239,7 +212,7 @@
         (st.stale_threshold_hours || 24) +
         " hodin (stáří: " +
         ageTxt +
-        "). Zkontrolujte export z Bakalářů.";
+        ").";
     } else {
       els.bannerStale.classList.add("hidden");
     }
@@ -248,12 +221,6 @@
       els.bannerOffline.classList.remove("hidden");
     } else {
       els.bannerOffline.classList.add("hidden");
-    }
-
-    if (state.viewMode === "teachers" && state.tab === "list") {
-      els.bannerDerivedTeacher.classList.remove("hidden");
-    } else {
-      els.bannerDerivedTeacher.classList.add("hidden");
     }
   }
 
@@ -281,34 +248,24 @@
     const prevVal = state.selectedEntity;
     els.entitySelect.replaceChildren();
 
-    const defaultOpt = el(
-      "option",
-      "",
-      state.viewMode === "classes" ? "Všechny třídy" : "Všichni učitelé"
-    );
+    const defaultOpt = el("option", "", "Všechny třídy");
     defaultOpt.value = "";
     els.entitySelect.appendChild(defaultOpt);
 
     if (!day) return;
 
     const items = new Set();
-    if (state.viewMode === "classes") {
-      (day.class_changes || []).forEach((ch) => {
-        if (ch.class_name) items.add(ch.class_name);
-      });
-      (day.absent_classes || []).forEach((ac) => {
-        if (ac.class_name) items.add(ac.class_name);
-      });
-    } else {
-      (day.derived_teachers || []).forEach((dt) => {
-        if (dt.teacher_key) items.add(dt.teacher_key);
-      });
-    }
+    (day.class_changes || []).forEach((ch) => {
+      if (ch.class_name) items.add(ch.class_name);
+    });
+    (day.absent_classes || []).forEach((ac) => {
+      if (ac.class_name) items.add(ac.class_name);
+    });
 
     Array.from(items)
-      .sort((a, b) => a.localeCompare(b, "cs"))
+      .sort((a, b) => a.localeCompare(b, "cs", { numeric: true }))
       .forEach((val) => {
-        const opt = el("option", "", val);
+        const opt = el("option", "", "Třída " + val);
         opt.value = val;
         els.entitySelect.appendChild(opt);
       });
@@ -319,6 +276,9 @@
       state.selectedEntity = "";
       els.entitySelect.value = "";
     }
+
+    const hasFilter = Boolean(state.selectedEntity || state.searchQuery);
+    els.btnClearFilter.classList.toggle("hidden", !hasFilter);
   }
 
   function matchesSearch(texts) {
@@ -326,327 +286,6 @@
     const q = state.searchQuery.toLowerCase();
     return texts.some((t) => t && String(t).toLowerCase().includes(q));
   }
-
-  function createBadge(changeType, rawLabel) {
-    const meta = BADGE_META[changeType] || BADGE_META.OSTATNI;
-    const badge = el("span", "badge badge-" + changeType);
-    const iconSpan = svgIcon(meta.icon);
-    const textSpan = el("span", "", meta.label + (rawLabel && meta === BADGE_META.OSTATNI ? " (" + rawLabel + ")" : ""));
-    badge.appendChild(iconSpan);
-    badge.appendChild(textSpan);
-    return badge;
-  }
-
-  function renderClassView(day) {
-    const byClass = new Map();
-    (day.class_changes || []).forEach((ch) => {
-      if (state.selectedEntity && ch.class_name !== state.selectedEntity) return;
-      if (
-        !matchesSearch([
-          ch.class_name,
-          ch.subject,
-          ch.group_name,
-          ch.room,
-          ch.sub_teacher,
-          ch.orig_teacher_code,
-          ch.orig_teacher_resolved,
-          ch.note,
-          ch.change_type_raw
-        ])
-      ) {
-        return;
-      }
-      if (!byClass.has(ch.class_name)) byClass.set(ch.class_name, []);
-      byClass.get(ch.class_name).push(ch);
-    });
-
-    if (byClass.size === 0) {
-      els.changesContainer.appendChild(
-        el("div", "section-block", "Žádné změny v rozvrzích tříd neodpovídají zadanému filtru.")
-      );
-      return;
-    }
-
-    Array.from(byClass.keys())
-      .sort((a, b) => a.localeCompare(b, "cs", { numeric: true }))
-      .forEach((clsName) => {
-        const changes = byClass.get(clsName);
-        const card = el("article", "group-card");
-        const header = el("div", "group-card-header");
-        header.appendChild(el("h3", "group-title", "Třída " + clsName));
-        header.appendChild(el("span", "group-count", changes.length + " změn(y)"));
-        card.appendChild(header);
-
-        const list = el("ul", "change-list");
-        changes.forEach((ch) => {
-          const li = el("li", "change-item");
-          li.appendChild(el("div", "hour-box", formatHourRange(ch.hour_from, ch.hour_to)));
-          li.appendChild(createBadge(ch.change_type, ch.change_type_raw));
-
-          const details = el("div", "change-details");
-          if (ch.subject) {
-            details.appendChild(el("span", "subject-tag", ch.subject));
-          }
-          if (ch.group_name) {
-            details.appendChild(el("span", "group-tag", "sk. " + ch.group_name));
-          }
-          if (ch.room) {
-            details.appendChild(
-              el(
-                "span",
-                "room-tag" + (ch.room_changed ? " room-changed" : ""),
-                "učebna " + ch.room
-              )
-            );
-          }
-          if (ch.sub_teacher) {
-            details.appendChild(el("span", "teacher-info", ch.sub_teacher));
-          }
-          if (ch.orig_teacher_code) {
-            const origText = ch.orig_teacher_resolved
-              ? "pův. " + ch.orig_teacher_resolved + " (" + ch.orig_teacher_code + ")"
-              : "(" + ch.orig_teacher_code + ")";
-            details.appendChild(el("span", "orig-teacher", origText));
-          }
-          if (ch.note && ch.change_type !== "CELODENNI_AKCE") {
-            const pairedInfo =
-              ch.paired_hour !== null && ch.paired_hour !== undefined
-                ? ch.note + " [spárováno]"
-                : ch.note;
-            details.appendChild(el("span", "note-text", pairedInfo));
-          }
-          li.appendChild(details);
-          list.appendChild(li);
-        });
-
-        card.appendChild(list);
-        els.changesContainer.appendChild(card);
-      });
-  }
-
-  function renderTeacherView(day) {
-    const byTeacher = new Map();
-    (day.derived_teachers || []).forEach((dt) => {
-      if (state.selectedEntity && dt.teacher_key !== state.selectedEntity) return;
-      if (
-        !matchesSearch([
-          dt.teacher_key,
-          dt.teacher_display,
-          dt.teacher_code,
-          dt.class_name,
-          dt.subject,
-          dt.room,
-          dt.counterpart_teacher,
-          dt.note,
-          dt.role
-        ])
-      ) {
-        return;
-      }
-      if (!byTeacher.has(dt.teacher_key)) {
-        byTeacher.set(dt.teacher_key, { display: dt.teacher_display, items: [] });
-      }
-      byTeacher.get(dt.teacher_key).items.push(dt);
-    });
-
-    if (byTeacher.size === 0) {
-      els.changesContainer.appendChild(
-        el("div", "section-block", "Žádné záznamy učitelů neodpovídají zadanému filtru.")
-      );
-      return;
-    }
-
-    Array.from(byTeacher.keys())
-      .sort((a, b) => a.localeCompare(b, "cs"))
-      .forEach((tKey) => {
-        const group = byTeacher.get(tKey);
-        const card = el("article", "group-card");
-        const header = el("div", "group-card-header");
-        header.appendChild(el("h3", "group-title", group.display));
-        header.appendChild(el("span", "group-count", group.items.length + " záznam(ů)"));
-        card.appendChild(header);
-
-        const list = el("ul", "change-list");
-        group.items.forEach((dt) => {
-          const li = el("li", "change-item");
-          li.appendChild(el("div", "hour-box", formatHourRange(dt.hour_from, dt.hour_to)));
-          li.appendChild(createBadge(dt.change_type, dt.role));
-
-          const details = el("div", "change-details");
-          details.appendChild(el("span", "subject-tag", "Třída " + dt.class_name));
-          if (dt.subject) details.appendChild(el("span", "teacher-info", dt.subject));
-          if (dt.group_name) details.appendChild(el("span", "group-tag", "sk. " + dt.group_name));
-          if (dt.room) details.appendChild(el("span", "room-tag", "učebna " + dt.room));
-          details.appendChild(el("span", "group-tag", "role: " + dt.role));
-          if (dt.counterpart_teacher) {
-            details.appendChild(el("span", "orig-teacher", "se zástupem: " + dt.counterpart_teacher));
-          }
-          if (dt.note) {
-            details.appendChild(el("span", "note-text", dt.note));
-          }
-          li.appendChild(details);
-          list.appendChild(li);
-        });
-
-        card.appendChild(list);
-        els.changesContainer.appendChild(card);
-      });
-  }
-
-  function renderSecondarySections(day) {
-    els.supervisionsContent.replaceChildren();
-    if (day.supervisions && day.supervisions.length > 0) {
-      els.supervisionsSection.classList.remove("hidden");
-      const ul = el("ul", "change-list");
-      day.supervisions.forEach((s) => {
-        const li = el("li", "change-item");
-        li.appendChild(el("div", "hour-box", "Třída " + s.class_name));
-        li.appendChild(createBadge("CELODENNI_AKCE", "Dohled"));
-        li.appendChild(
-          el("div", "change-details", formatHourRange(s.hour_from, s.hour_to) + " — " + s.teachers_text)
-        );
-        ul.appendChild(li);
-      });
-      els.supervisionsContent.appendChild(ul);
-    } else {
-      els.supervisionsSection.classList.add("hidden");
-    }
-
-    els.absentTeachersContent.replaceChildren();
-    if (day.absent_teachers && day.absent_teachers.length > 0) {
-      els.absentTeachersSection.classList.remove("hidden");
-      const tbl = el("table", "grid-table");
-      const thead = el("thead");
-      const trHead = el("tr");
-      trHead.appendChild(el("th", "", "Učitel"));
-      for (let h = 1; h <= 10; h++) {
-        trHead.appendChild(el("th", "", h + "."));
-      }
-      thead.appendChild(trHead);
-      tbl.appendChild(thead);
-
-      const tbody = el("tbody");
-      day.absent_teachers.forEach((at) => {
-        const tr = el("tr");
-        const nameLabel = at.teacher_code
-          ? at.teacher_full_name + " (" + at.teacher_code + ")"
-          : at.teacher_full_name;
-        tr.appendChild(el("td", "", nameLabel));
-        for (let h = 1; h <= 10; h++) {
-          const cellObj = at.hours && (at.hours[h] || at.hours[String(h)]);
-          const td = el("td");
-          if (cellObj) {
-            td.textContent = cellObj.raw;
-            if (cellObj.status === "ABSENT_SUBSTITUTED") {
-              td.className = "cell-sub";
-              if (cellObj.sub_teacher_resolved) {
-                td.title = "Supluje: " + cellObj.sub_teacher_resolved;
-              }
-            } else if (cellObj.status === "ABSENT_CANCELLED") {
-              td.className = "cell-cancel";
-              td.title = "Hodina odpadá / bez náhrady";
-            } else if (cellObj.status === "ABSENT_FREE") {
-              td.className = "cell-free";
-              td.title = "Nepřítomen (volná hodina)";
-            } else {
-              td.className = "cell-unrec";
-              td.title = "Nerozpoznaný stav";
-            }
-          }
-          tr.appendChild(td);
-        }
-        tbody.appendChild(tr);
-      });
-      tbl.appendChild(tbody);
-      els.absentTeachersContent.appendChild(tbl);
-    } else {
-      els.absentTeachersSection.classList.add("hidden");
-    }
-
-    els.absentClassesContent.replaceChildren();
-    if (day.absent_classes && day.absent_classes.length > 0) {
-      els.absentClassesSection.classList.remove("hidden");
-      const tbl = el("table", "grid-table");
-      const thead = el("thead");
-      const trHead = el("tr");
-      trHead.appendChild(el("th", "", "Třída"));
-      for (let h = 1; h <= 10; h++) trHead.appendChild(el("th", "", h + "."));
-      thead.appendChild(trHead);
-      tbl.appendChild(thead);
-
-      const tbody = el("tbody");
-      day.absent_classes.forEach((ac) => {
-        const tr = el("tr");
-        tr.appendChild(el("td", "", ac.class_name));
-        for (let h = 1; h <= 10; h++) {
-          const val = ac.hours && (ac.hours[h] || ac.hours[String(h)] || "");
-          tr.appendChild(el("td", val ? "cell-sub" : "", val));
-        }
-        tbody.appendChild(tr);
-      });
-      tbl.appendChild(tbody);
-      els.absentClassesContent.appendChild(tbl);
-    } else {
-      els.absentClassesSection.classList.add("hidden");
-    }
-
-    els.closedRoomsContent.replaceChildren();
-    if (day.closed_rooms && day.closed_rooms.length > 0) {
-      els.closedRoomsSection.classList.remove("hidden");
-      const tbl = el("table", "grid-table");
-      const thead = el("thead");
-      const trHead = el("tr");
-      trHead.appendChild(el("th", "", "Učebna"));
-      for (let h = 1; h <= 10; h++) trHead.appendChild(el("th", "", h + "."));
-      thead.appendChild(trHead);
-      tbl.appendChild(thead);
-
-      const tbody = el("tbody");
-      day.closed_rooms.forEach((cr) => {
-        const tr = el("tr");
-        tr.appendChild(el("td", "", "Učebna " + cr.room_name));
-        for (let h = 1; h <= 10; h++) {
-          const val = cr.hours && (cr.hours[h] || cr.hours[String(h)] || "");
-          tr.appendChild(el("td", val ? "cell-cancel" : "", val));
-        }
-        tbody.appendChild(tr);
-      });
-      tbl.appendChild(tbody);
-      els.closedRoomsContent.appendChild(tbl);
-    } else {
-      els.closedRoomsSection.classList.add("hidden");
-    }
-
-    els.unrecognizedContent.replaceChildren();
-    if (day.unrecognized && day.unrecognized.length > 0) {
-      els.unrecognizedSection.classList.remove("hidden");
-      const ul = el("ul", "change-list");
-      day.unrecognized.forEach((u) => {
-        const li = el("li", "change-item");
-        li.appendChild(el("div", "hour-box", u.section || "Neznámé"));
-        li.appendChild(createBadge("OSTATNI", "Nerozpoznáno"));
-        li.appendChild(el("div", "change-details", u.raw_content + " (" + u.reason + ")"));
-        ul.appendChild(li);
-      });
-      els.unrecognizedContent.appendChild(ul);
-    } else {
-      els.unrecognizedSection.classList.add("hidden");
-    }
-  }
-
-  // ---- Varianta "New": celý den v jedné přehledné tabulce na 1 stránku ----
-  const SHORT = {
-    SUPLOVANI: "Supluje",
-    ODPADA: "Odpadá",
-    SPOJENO: "Spojeno",
-    ZMENA_UCEBNY: "Učebna",
-    PRESUN_NA: "Přesun >",
-    PRESUN_Z: "Přesun <",
-    NAVIC: "Navíc",
-    VYMENA: "Výměna",
-    CELODENNI_AKCE: "Akce",
-    OSTATNI: "Změna"
-  };
 
   function hoursRangeText(hoursObj) {
     const hs = Object.keys(hoursObj || {})
@@ -682,6 +321,20 @@
       .filter(Boolean)
       .join(", ");
     return box;
+  }
+
+  function changeMatchesSearch(ch) {
+    return matchesSearch([
+      ch.class_name,
+      ch.subject,
+      ch.group_name,
+      ch.room,
+      ch.sub_teacher,
+      ch.orig_teacher_code,
+      ch.orig_teacher_resolved,
+      ch.note,
+      ch.change_type_raw
+    ]);
   }
 
   function renderGrid(day) {
@@ -740,9 +393,13 @@
     }
     root.appendChild(strip);
 
+    const allChanges = (day.class_changes || []).filter(changeMatchesSearch);
     const classes = new Set();
-    (day.class_changes || []).forEach((c) => classes.add(c.class_name));
-    (day.absent_classes || []).forEach((c) => classes.add(c.class_name));
+    allChanges.forEach((c) => classes.add(c.class_name));
+    if (!state.searchQuery) {
+      (day.absent_classes || []).forEach((c) => classes.add(c.class_name));
+    }
+
     const rowsList = Array.from(classes)
       .filter((c) => !state.selectedEntity || c === state.selectedEntity)
       .sort((a, b) => a.localeCompare(b, "cs", { numeric: true }));
@@ -754,15 +411,15 @@
     maxHour = Math.min(maxHour, 10);
 
     if (rowsList.length === 0) {
-      root.appendChild(el("div", "section-block", "Pro tento den nejsou žádné změny."));
+      root.appendChild(el("div", "section-block", "Žádné změny v rozvrhu neodpovídají zadanému filtru."));
       return;
     }
 
     const avail = Math.max(
-      window.innerHeight - (document.body.classList.contains("kiosk") ? 120 : 230),
+      window.innerHeight - (document.body.classList.contains("kiosk") ? 110 : 195),
       260
     );
-    const fs = Math.max(10.5, Math.min(14, avail / rowsList.length / 2.8));
+    const fs = Math.max(10.5, Math.min(14, avail / rowsList.length / 2.75));
     root.style.setProperty("--gfs", fs.toFixed(1) + "px");
 
     const tbl = el("table", "big-grid");
@@ -777,10 +434,10 @@
     rowsList.forEach((cls) => {
       const tr = el("tr");
       tr.appendChild(el("th", "gh-class", cls));
-      const changes = (day.class_changes || []).filter(
+      const changes = allChanges.filter(
         (c) => c.class_name === cls && c.change_type !== "CELODENNI_AKCE"
       );
-      const actions = (day.class_changes || []).filter(
+      const actions = allChanges.filter(
         (c) => c.class_name === cls && c.change_type === "CELODENNI_AKCE"
       );
       const absCls = (day.absent_classes || []).find((a) => a.class_name === cls);
@@ -825,27 +482,6 @@
     root.appendChild(legend);
   }
 
-  function applyTab() {
-    const grid = state.tab === "grid";
-    els.gridView.classList.toggle("hidden", !grid);
-    els.changesContainer.classList.toggle("hidden", grid);
-    els.tabList.classList.toggle("active", !grid);
-    els.tabGrid.classList.toggle("active", grid);
-    els.tabList.setAttribute("aria-selected", String(!grid));
-    els.tabGrid.setAttribute("aria-selected", String(grid));
-    els.filtersRow.classList.toggle("hidden", grid);
-    document.body.classList.toggle("tab-grid", grid);
-    if (grid) {
-      [
-        "supervisionsSection",
-        "absentTeachersSection",
-        "absentClassesSection",
-        "closedRoomsSection",
-        "unrecognizedSection"
-      ].forEach((k) => els[k].classList.add("hidden"));
-    }
-  }
-
   // Režim celé obrazovky s plynulým automatickým posunem nahoru a dolů
   const kiosk = {
     pos: 0,
@@ -854,7 +490,7 @@
     dir: 1,
     pauseUntil: 0,
     last: 0,
-    speed: 45,
+    speed: 40,
     pauseMs: 2500
   };
   const btnFs = document.getElementById("btn-fullscreen");
@@ -883,75 +519,26 @@
     renderDateTabs();
     populateEntityFilter();
 
-    els.changesContainer.replaceChildren();
     const day = state.dayData;
-    applyTab();
     if (!day) {
       els.dayHeading.textContent = "Žádná data suplování nejsou momentálně k dispozici.";
-      els.supervisionsSection.classList.add("hidden");
-      els.absentTeachersSection.classList.add("hidden");
-      els.absentClassesSection.classList.add("hidden");
-      els.closedRoomsSection.classList.add("hidden");
-      els.unrecognizedSection.classList.add("hidden");
+      els.gridView.replaceChildren();
       return;
     }
 
     els.dayHeading.replaceChildren();
     els.dayHeading.appendChild(
-      el("span", "", "Suplování: " + formatShortDate(day.date, day.day_name) + " " + day.date.slice(0, 4))
+      el("span", "", formatShortDate(day.date, day.day_name) + " " + day.date.slice(0, 4))
     );
     if (day.week_label) {
       els.dayHeading.appendChild(el("span", "week-badge", day.week_label));
     }
 
-    if (state.tab === "grid") {
-      renderGrid(day);
-    } else {
-      if (state.viewMode === "classes") {
-        renderClassView(day);
-      } else {
-        renderTeacherView(day);
-      }
-      renderSecondarySections(day);
-    }
+    renderGrid(day);
     if (kiosk.active) setScrollTop(keepScroll);
   }
 
-  function setTab(name) {
-    state.tab = name;
-    try {
-      localStorage.setItem("krizik_supl_tab", name);
-    } catch (_e) {
-      // Ignoruj
-    }
-    if (els.mainContainer) els.mainContainer.style.transform = "";
-    kiosk.pos = 0;
-    renderAll();
-  }
-
-  els.tabList.addEventListener("click", () => setTab("list"));
-  els.tabGrid.addEventListener("click", () => setTab("grid"));
   window.addEventListener("resize", () => {
-    if (state.tab === "grid") renderAll();
-  });
-
-  els.btnViewClasses.addEventListener("click", () => {
-    state.viewMode = "classes";
-    state.selectedEntity = "";
-    els.btnViewClasses.classList.add("active");
-    els.btnViewClasses.setAttribute("aria-pressed", "true");
-    els.btnViewTeachers.classList.remove("active");
-    els.btnViewTeachers.setAttribute("aria-pressed", "false");
-    renderAll();
-  });
-
-  els.btnViewTeachers.addEventListener("click", () => {
-    state.viewMode = "teachers";
-    state.selectedEntity = "";
-    els.btnViewTeachers.classList.add("active");
-    els.btnViewTeachers.setAttribute("aria-pressed", "true");
-    els.btnViewClasses.classList.remove("active");
-    els.btnViewClasses.setAttribute("aria-pressed", "false");
     renderAll();
   });
 
@@ -987,7 +574,6 @@
 
     if (ts >= kiosk.pauseUntil) {
       if (maxY > 12) {
-        // Běžný posun dlouhé stránky nahoru a dolů
         if (els.mainContainer) els.mainContainer.style.transform = "";
         const currentY = getScrollTop();
         if (Math.abs(currentY - kiosk.pos) > 8) kiosk.pos = currentY;
@@ -1003,9 +589,8 @@
         }
         setScrollTop(kiosk.pos);
       } else {
-        // Pokud se celá tabulka vejde na 1 obrazovku, plynule ji posouváme v rozsahu 0..80 px
-        const glideRange = 80;
-        kiosk.pos += kiosk.dir * (kiosk.speed * 0.6) * dt;
+        const glideRange = 75;
+        kiosk.pos += kiosk.dir * (kiosk.speed * 0.55) * dt;
         if (kiosk.pos >= glideRange) {
           kiosk.pos = glideRange;
           kiosk.dir = -1;
@@ -1074,7 +659,6 @@
     )
   );
 
-  // Registrace PWA Service Workeru
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./sw.js").catch(() => {});

@@ -1,0 +1,217 @@
+{
+  "date": "2026-11-09",
+  "day_name": "Pondělí",
+  "week_label": "1. týden",
+  "school_name": "Vyšší odborná škola a Střední průmyslová škola elektrotechnická Františka Křižíka",
+  "exported_at": "2026-11-09T07:15:00+01:00",
+  "exported_at_display": "9. 11. 2026 07:15",
+  "absent_classes": [],
+  "absent_teachers": [
+    {
+      "teacher_full_name": "Čm",
+      "teacher_normalized_name": "Čm",
+      "teacher_code": "Čm",
+      "hours": {
+        "1": {
+          "hour": 1,
+          "raw": "Ře",
+          "status": "ABSENT_SUBSTITUTED",
+          "sub_teacher_code": "Ře",
+          "sub_teacher_resolved": ""
+        },
+        "2": {
+          "hour": 2,
+          "raw": "..",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "3": {
+          "hour": 3,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "4": {
+          "hour": 4,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "5": {
+          "hour": 5,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "6": {
+          "hour": 6,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "7": {
+          "hour": 7,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        }
+      }
+    }
+  ],
+  "closed_rooms": [],
+  "class_changes": [
+    {
+      "id": 414,
+      "date": "2026-11-09",
+      "class_name": "2A",
+      "hour_from": 1,
+      "hour_to": 1,
+      "subject": "Če",
+      "group_name": "",
+      "room": "4",
+      "room_changed": false,
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "sub_teacher": "Ře",
+      "sub_teacher_changed": true,
+      "orig_teacher_code": "Čm",
+      "orig_teacher_resolved": "",
+      "note": "",
+      "paired_hour": null,
+      "paired_change_id": null,
+      "raw_row_text": ""
+    },
+    {
+      "id": 415,
+      "date": "2026-11-09",
+      "class_name": "2A",
+      "hour_from": 2,
+      "hour_to": 2,
+      "subject": "Dě",
+      "group_name": "",
+      "room": "",
+      "room_changed": false,
+      "change_type": "ODPADA",
+      "change_type_raw": "odpadá",
+      "sub_teacher": "",
+      "sub_teacher_changed": false,
+      "orig_teacher_code": "Čm",
+      "orig_teacher_resolved": "",
+      "note": "",
+      "paired_hour": null,
+      "paired_change_id": null,
+      "raw_row_text": ""
+    },
+    {
+      "id": 416,
+      "date": "2026-11-09",
+      "class_name": "2A",
+      "hour_from": 3,
+      "hour_to": 3,
+      "subject": "Fy",
+      "group_name": "1/2",
+      "room": "P3",
+      "room_changed": true,
+      "change_type": "VYMENA",
+      "change_type_raw": "výměna",
+      "sub_teacher": "K. F.",
+      "sub_teacher_changed": true,
+      "orig_teacher_code": "Čm",
+      "orig_teacher_resolved": "",
+      "note": "",
+      "paired_hour": null,
+      "paired_change_id": null,
+      "raw_row_text": ""
+    }
+  ],
+  "supervisions": [],
+  "unrecognized": [],
+  "derived_teachers": [
+    {
+      "teacher_key": "K. F.",
+      "teacher_display": "K. F.",
+      "teacher_code": "K. F.",
+      "role": "výměna",
+      "hour_from": 3,
+      "hour_to": 3,
+      "class_name": "2A",
+      "subject": "Fy",
+      "group_name": "1/2",
+      "room": "P3",
+      "change_type": "VYMENA",
+      "change_type_raw": "výměna",
+      "counterpart_teacher": "(Čm)",
+      "note": ""
+    },
+    {
+      "teacher_key": "Čm",
+      "teacher_display": "Čm",
+      "teacher_code": "Čm",
+      "role": "chybí (zastoupen)",
+      "hour_from": 1,
+      "hour_to": 1,
+      "class_name": "2A",
+      "subject": "Če",
+      "group_name": "",
+      "room": "4",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "Ře",
+      "note": ""
+    },
+    {
+      "teacher_key": "Čm",
+      "teacher_display": "Čm",
+      "teacher_code": "Čm",
+      "role": "chybí (odpadá)",
+      "hour_from": 2,
+      "hour_to": 2,
+      "class_name": "2A",
+      "subject": "Dě",
+      "group_name": "",
+      "room": "",
+      "change_type": "ODPADA",
+      "change_type_raw": "odpadá",
+      "counterpart_teacher": "",
+      "note": ""
+    },
+    {
+      "teacher_key": "Čm",
+      "teacher_display": "Čm",
+      "teacher_code": "Čm",
+      "role": "chybí (zastoupen)",
+      "hour_from": 3,
+      "hour_to": 3,
+      "class_name": "2A",
+      "subject": "Fy",
+      "group_name": "1/2",
+      "room": "P3",
+      "change_type": "VYMENA",
+      "change_type_raw": "výměna",
+      "counterpart_teacher": "K. F.",
+      "note": ""
+    },
+    {
+      "teacher_key": "Ře",
+      "teacher_display": "Ře",
+      "teacher_code": "Ře",
+      "role": "supluje",
+      "hour_from": 1,
+      "hour_to": 1,
+      "class_name": "2A",
+      "subject": "Če",
+      "group_name": "",
+      "room": "4",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "(Čm)",
+      "note": ""
+    }
+  ]
+}
