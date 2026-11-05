@@ -255,3 +255,19 @@ def test_upload_export_endpoint(tmp_path: Path) -> None:
         assert r_ok.status_code == 200
         assert r_ok.json()["ok"] is True
         assert (watch_dir / "suplprehtrid.html").is_file()
+
+
+def test_static_export_injects_static_mode_script(tmp_path: Path) -> None:
+    """index.html ve statickém exportu musí načítat static-mode.js před app.js."""
+    watch_dir = tmp_path / "exports"
+    watch_dir.mkdir()
+    shutil.copy2(SAMPLES_DIR / "suplprehtrid.html", watch_dir / "suplprehtrid.html")
+    cfg_file = tmp_path / "config.yaml"
+    cfg_file.write_text(
+        f"watch_dir: {watch_dir}\ndb_path: {tmp_path / 'supl.db'}\nlog_dir: {tmp_path / 'logs'}\n",
+        encoding="utf-8",
+    )
+    dist_dir = tmp_path / "dist"
+    assert cli_main(["--config", str(cfg_file), "export-static", "--output", str(dist_dir)]) == 0
+    html = (dist_dir / "index.html").read_text(encoding="utf-8")
+    assert html.index("static-mode.js") < html.index("app.js")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -51,10 +52,14 @@ def export_static_site(
         "window.__STATIC_EXPORT__ = true;\n", encoding="utf-8"
     )
     index_html = (STATIC_SRC_DIR / "index.html").read_text(encoding="utf-8")
-    index_html = index_html.replace(
-        '<script src="app.js?v=7"></script>',
-        '<script src="static-mode.js"></script>\n  <script src="app.js?v=7"></script>',
+    index_html, injected = re.subn(
+        r'<script src="app\.js[^"]*"></script>',
+        lambda m: '<script src="static-mode.js"></script>\n  ' + m.group(0),
+        index_html,
+        count=1,
     )
+    if injected != 1:
+        raise RuntimeError("Nelze vložit static-mode.js do index.html (nenalezen script app.js).")
     (output_dir / "index.html").write_text(index_html, encoding="utf-8")
 
     # Načti všechny dny, anonymizuj je a ulož jako JSON
