@@ -23,6 +23,6 @@ services:
       - SUPL_UPLOAD_TOKEN=${SUPL_UPLOAD_TOKEN:-}
     volumes:
       # Sdílená / sledovaná složka s HTML exporty (SMB mount např. /mnt/supl nebo lokální upload adresář)
-      - ${HOST_EXPORTS_DIR:-./watch_exports}:/app/watch_exports
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - ${HOST_EXPORTS_DIR:-./watch_exports}:/app/watch_exports:z
+      - ./data:/app/data:z
+      - ./logs:/app/logs:z
