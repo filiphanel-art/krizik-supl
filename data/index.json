@@ -6,7 +6,7 @@
       "week_label": "2. týden",
       "exported_at": "2026-11-05T08:26:00+01:00",
       "exported_at_display": "5. 11. 2026 08:26",
-      "updated_at": "2026-11-05T16:20:49+01:00"
+      "updated_at": "2026-11-05T16:22:51+01:00"
     },
     {
       "date": "2026-11-03",
@@ -14,7 +14,7 @@
       "week_label": "2. týden",
       "exported_at": "2026-11-05T08:26:00+01:00",
       "exported_at_display": "5. 11. 2026 08:26",
-      "updated_at": "2026-11-05T16:20:49+01:00"
+      "updated_at": "2026-11-05T16:22:51+01:00"
     },
     {
       "date": "2026-11-04",
@@ -22,7 +22,7 @@
       "week_label": "2. týden",
       "exported_at": "2026-11-05T08:26:00+01:00",
       "exported_at_display": "5. 11. 2026 08:26",
-      "updated_at": "2026-11-05T16:20:49+01:00"
+      "updated_at": "2026-11-05T16:22:51+01:00"
     },
     {
       "date": "2026-11-05",
@@ -30,7 +30,7 @@
       "week_label": "2. týden",
       "exported_at": "2026-11-05T08:26:00+01:00",
       "exported_at_display": "5. 11. 2026 08:26",
-      "updated_at": "2026-11-05T16:20:49+01:00"
+      "updated_at": "2026-11-05T16:22:51+01:00"
     },
     {
       "date": "2026-11-06",
@@ -38,7 +38,7 @@
       "week_label": "2. týden",
       "exported_at": "2026-11-05T08:26:00+01:00",
       "exported_at_display": "5. 11. 2026 08:26",
-      "updated_at": "2026-11-05T16:20:49+01:00"
+      "updated_at": "2026-11-05T16:22:51+01:00"
     },
     {
       "date": "2026-11-09",
@@ -55,11 +55,11 @@
     "last_error_message": "",
     "last_error_at": "",
     "is_stale": false,
-    "age_hours": 7.91,
+    "age_hours": 7.95,
     "stale_threshold_hours": 24.0,
     "last_success": {
       "exported_at": "2026-11-05T08:26:00+01:00",
-      "processed_at": "2026-11-05T16:20:49+01:00",
+      "processed_at": "2026-11-05T16:22:51+01:00",
       "days_count": 5
     },
     "anonymize": true

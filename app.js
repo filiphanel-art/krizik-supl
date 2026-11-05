@@ -589,20 +589,9 @@
         }
         setScrollTop(kiosk.pos);
       } else {
-        const glideRange = 75;
-        kiosk.pos += kiosk.dir * (kiosk.speed * 0.55) * dt;
-        if (kiosk.pos >= glideRange) {
-          kiosk.pos = glideRange;
-          kiosk.dir = -1;
-          kiosk.pauseUntil = ts + kiosk.pauseMs;
-        } else if (kiosk.pos <= 0) {
-          kiosk.pos = 0;
-          kiosk.dir = 1;
-          kiosk.pauseUntil = ts + kiosk.pauseMs;
-        }
-        if (els.mainContainer) {
-          els.mainContainer.style.transform = "translateY(" + Math.round(kiosk.pos) + "px)";
-        }
+        // Obsah se vejde na obrazovku – nic se neposouvá.
+        kiosk.pos = 0;
+        if (els.mainContainer) els.mainContainer.style.transform = "";
       }
     }
     kiosk.raf = requestAnimationFrame(kioskStep);
