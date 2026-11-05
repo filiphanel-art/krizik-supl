@@ -1,103 +1,81 @@
-<#
-.SYNOPSIS
-    Automatické odesílání suplprehtrid.html ze složky na Windows na server Suplování Viewer.
-.DESCRIPTION
-    Tento skript sleduje zadanou složku (např. na ploše zástupkyně) a jakmile Bakaláři
-    uloží soubor suplprehtrid.html, odešle ho přes HTTP POST na skrytý URL endpoint.
-    Pokud je počítač vypnutý, server si drží data v SQLite databázi.
-    Při startu Windows (Task Scheduler) skript zkontroluje soubor a odešle ho znovu.
-#>
+﻿# Suplovani Viewer - Windows agent
+# Sleduje slozku a po zmene souboru suplprehtrid.html ho posle na server (HTTP POST).
+# Spusteni: powershell -ExecutionPolicy Bypass -File C:\Krizik\windows_sync_agent.ps1
 
 param(
     [string]$WatchFolder = "$env:USERPROFILE\Desktop\SuplovaniExport",
-    [string]$ServerUrl = "http://10.20.0.81:8080/api/upload/skola-tajny-klic-123",
-    [string]$TargetFileName = "suplprehtrid.html"
+    [string]$ServerUrl = "http://10.20.0.81:8080/api/upload/krizik-supl-tajny-klic-2026",
+    [string]$TargetFileName = "suplprehtrid.html",
+    [int]$IntervalSeconds = 15,
+    [string]$LogFile = "C:\Krizik\sync.log"
 )
 
-Write-Host "=== Sledování exportu Bakalářů pro Suplování Viewer ===" -ForegroundColor Cyan
-Write-Host "Sledovaná složka: $WatchFolder"
-Write-Host "Cílový server:    $ServerUrl"
-Write-Host "Hledaný soubor:   $TargetFileName"
+$ErrorActionPreference = "Continue"
+
+function Write-Log {
+    param([string]$Message, [string]$Color = "Gray")
+    $line = "{0}  {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
+    Write-Host $line -ForegroundColor $Color
+    try {
+        $dir = Split-Path $LogFile -Parent
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        # orezani logu, aby nerostl donekonecna
+        if ((Test-Path $LogFile) -and ((Get-Item $LogFile).Length -gt 512KB)) {
+            Get-Content $LogFile -Tail 200 | Set-Content $LogFile
+        }
+        Add-Content -Path $LogFile -Value $line
+    } catch { }
+}
+
+function Test-FileReadable {
+    param([string]$Path)
+    try {
+        $s = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $s.Close()
+        return $true
+    } catch { return $false }
+}
+
+function Send-File {
+    param([string]$Path)
+    try {
+        $r = Invoke-RestMethod -Uri $ServerUrl -Method Post -InFile $Path `
+            -ContentType "text/html" -Headers @{ "X-Filename" = $TargetFileName } -TimeoutSec 60
+        Write-Log ("ODESLANO OK: " + ($r | ConvertTo-Json -Compress)) "Green"
+        return $true
+    } catch {
+        Write-Log ("CHYBA odeslani: " + $_.Exception.Message) "Red"
+        return $false
+    }
+}
 
 if (-not (Test-Path $WatchFolder)) {
     New-Item -ItemType Directory -Path $WatchFolder -Force | Out-Null
-    Write-Host "Vytvořena složka: $WatchFolder" -ForegroundColor Yellow
+    Write-Log "Vytvorena slozka $WatchFolder" "Yellow"
 }
 
-function Send-SuplovaniFile {
-    param([string]$FilePath)
+$filePath = Join-Path $WatchFolder $TargetFileName
+$lastSentHash = $null
 
-    if (-not (Test-Path $FilePath)) { return }
+Write-Log "Agent spusten. Slozka: $WatchFolder  Soubor: $TargetFileName" "Cyan"
+Write-Log "Server: $ServerUrl" "Cyan"
 
-    $fileName = [System.IO.Path]::GetFileName($FilePath)
-    if ($fileName.ToLower() -ne $TargetFileName.ToLower()) {
-        Write-Host "Ignoruji soubor $fileName (očekáván je pouze $TargetFileName)" -ForegroundColor Gray
-        return
-    }
-
-    # Počkej na dokončení zápisu programem Bakaláři (soubor nesmí být uzamčen)
-    $maxRetries = 10
-    $retry = 0
-    $fileReady = $false
-    while ($retry -lt $maxRetries -and -not $fileReady) {
-        try {
-            $stream = [System.IO.File]::Open($FilePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
-            $stream.Close()
-            $stream.Dispose()
-            $fileReady = $true
-        } catch {
-            Start-Sleep -Seconds 1
-            $retry++
-        }
-    }
-
-    if (-not $fileReady) {
-        Write-Host "Soubor $fileName je stále uzamčen jinou aplikací." -ForegroundColor Red
-        return
-    }
-
+while ($true) {
     try {
-        Write-Host "Odesílám $fileName na server..." -ForegroundColor Cyan
-        $response = Invoke-RestMethod -Uri $ServerUrl -Method Post -InFile $FilePath `
-            -ContentType "text/html" -Headers @{ "X-Filename" = $TargetFileName }
-        Write-Host "Úspěšně odesláno: $(ConvertTo-Json $response -Compress)" -ForegroundColor Green
+        if (Test-Path $filePath) {
+            $size1 = (Get-Item $filePath).Length
+            Start-Sleep -Seconds 2
+            $size2 = (Get-Item $filePath).Length
+            if ($size1 -eq $size2 -and $size2 -gt 0 -and (Test-FileReadable $filePath)) {
+                $hash = (Get-FileHash -Path $filePath -Algorithm SHA256).Hash
+                if ($hash -ne $lastSentHash) {
+                    Write-Log "Novy/zmeneny soubor, odesilam ($size2 B)..." "Cyan"
+                    if (Send-File $filePath) { $lastSentHash = $hash }
+                }
+            }
+        }
     } catch {
-        Write-Host "Chyba při odesílání: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Log ("Neocekavana chyba: " + $_.Exception.Message) "Red"
     }
-}
-
-# 1. Kontrola při spuštění (pokud soubor již existuje)
-$initialFile = Join-Path $WatchFolder $TargetFileName
-if (Test-Path $initialFile) {
-    Write-Host "Při startu nalezen soubor, odesílám..." -ForegroundColor Yellow
-    Send-SuplovaniFile -FilePath $initialFile
-}
-
-# 2. Sledování změn v reálném čase přes FileSystemWatcher
-$watcher = New-Object System.IO.FileSystemWatcher
-$watcher.Path = $WatchFolder
-$watcher.Filter = "*.*"
-$watcher.IncludeSubdirectories = $false
-$watcher.EnableRaisingEvents = $true
-
-$action = {
-    $path = $Event.SourceEventArgs.FullPath
-    $changeType = $Event.SourceEventArgs.ChangeType
-    Write-Host "Zaznamenána událost $changeType na $path" -ForegroundColor DarkCyan
-    Start-Sleep -Seconds 2 # Počkej na dopsání
-    Send-SuplovaniFile -FilePath $path
-}
-
-Register-ObjectEvent $watcher "Created" -Action $action | Out-Null
-Register-ObjectEvent $watcher "Changed" -Action $action | Out-Null
-
-Write-Host "Sledování je aktivní. Pro ukončení stiskněte Ctrl+C." -ForegroundColor Green
-
-try {
-    while ($true) {
-        Start-Sleep -Seconds 10
-    }
-} finally {
-    Unregister-Event -SourceIdentifier * -ErrorAction SilentlyContinue
-    $watcher.Dispose()
+    Start-Sleep -Seconds $IntervalSeconds
 }
