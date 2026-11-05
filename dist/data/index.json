@@ -1,0 +1,67 @@
+{
+  "dates": [
+    {
+      "date": "2026-11-02",
+      "day_name": "Pondělí",
+      "week_label": "2. týden",
+      "exported_at": "2026-11-05T08:26:00+01:00",
+      "exported_at_display": "5. 11. 2026 08:26",
+      "updated_at": "2026-11-05T16:17:25+01:00"
+    },
+    {
+      "date": "2026-11-03",
+      "day_name": "Úterý",
+      "week_label": "2. týden",
+      "exported_at": "2026-11-05T08:26:00+01:00",
+      "exported_at_display": "5. 11. 2026 08:26",
+      "updated_at": "2026-11-05T16:17:25+01:00"
+    },
+    {
+      "date": "2026-11-04",
+      "day_name": "Středa",
+      "week_label": "2. týden",
+      "exported_at": "2026-11-05T08:26:00+01:00",
+      "exported_at_display": "5. 11. 2026 08:26",
+      "updated_at": "2026-11-05T16:17:25+01:00"
+    },
+    {
+      "date": "2026-11-05",
+      "day_name": "Čtvrtek",
+      "week_label": "2. týden",
+      "exported_at": "2026-11-05T08:26:00+01:00",
+      "exported_at_display": "5. 11. 2026 08:26",
+      "updated_at": "2026-11-05T16:17:25+01:00"
+    },
+    {
+      "date": "2026-11-06",
+      "day_name": "Pátek",
+      "week_label": "2. týden",
+      "exported_at": "2026-11-05T08:26:00+01:00",
+      "exported_at_display": "5. 11. 2026 08:26",
+      "updated_at": "2026-11-05T16:17:25+01:00"
+    },
+    {
+      "date": "2026-11-09",
+      "day_name": "Pondělí",
+      "week_label": "1. týden",
+      "exported_at": "2026-11-09T07:15:00+01:00",
+      "exported_at_display": "9. 11. 2026 07:15",
+      "updated_at": "2026-11-05T12:12:22+01:00"
+    }
+  ],
+  "status": {
+    "has_data": true,
+    "has_parse_error": false,
+    "last_error_message": "",
+    "last_error_at": "",
+    "is_stale": false,
+    "age_hours": 7.86,
+    "stale_threshold_hours": 24.0,
+    "last_success": {
+      "exported_at": "2026-11-05T08:26:00+01:00",
+      "processed_at": "2026-11-05T16:17:25+01:00",
+      "days_count": 5
+    },
+    "anonymize": true
+  }
+}

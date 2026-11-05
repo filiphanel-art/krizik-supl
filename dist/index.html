@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1e3a8a">
-  <meta name="description" content="Aktuální suplování a změny v rozvrhu – SPŠE Františka Křižíka">
-  <title>Suplování – Přehled změn v rozvrhu</title>
+  <meta name="theme-color" content="#1674bb">
+  <meta name="description" content="Aktuální suplování a změny v rozvrhu – VOŠ a SPŠE Františka Křižíka">
+  <title>Suplování – VOŠ a SPŠE Františka Křižíka</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=7">
+  <link rel="stylesheet" href="styles.css?v=8">
 </head>
-<body>
+<body class="tab-grid">
   <header class="app-header">
     <div class="header-inner">
       <div>
-        <h1 class="school-title" id="school-name">Přehled suplování a změn v rozvrhu</h1>
-        <p class="school-subtitle" id="header-subtitle">Automatický přehled pro žáky a učitele</p>
+        <h1 class="school-title" id="school-name">Vyšší odborná škola a Střední průmyslová škola elektrotechnická Františka Křižíka</h1>
+        <p class="school-subtitle" id="header-subtitle">Přehled suplování a změn v rozvrhu</p>
       </div>
       <div class="header-actions">
         <button
@@ -51,7 +51,7 @@
   </header>
 
   <main class="container" id="main-container">
-    <!-- Varovné bannery (F3, F6, F4 offline) -->
+    <!-- Varovné bannery (zobrazí se pouze při chybě, zastaralých datech nebo offline) -->
     <div id="banner-parse-error" class="banner banner-error hidden" role="alert">
       <div>
         <strong>Nelze zpracovat nový export.</strong>
@@ -67,100 +67,35 @@
       <div>Jste v režimu offline. Zobrazuje se poslední uložená verze suplování z paměti zařízení.</div>
     </div>
 
-    <div id="banner-derived-teacher" class="banner banner-info hidden" role="note">
-      <div>
-        <strong>Odvozený pohled podle učitelů:</strong>
-        Tento přehled je automaticky odvozen ze změn v rozvrzích tříd, mřížky nepřítomných učitelů a pedagogických dohledů.
-      </div>
-    </div>
-
-    <div class="top-bar-row">
-      <nav class="main-tabs" role="tablist" aria-label="Varianta zobrazení">
-        <button type="button" id="tab-list" class="main-tab active" role="tab" aria-selected="true">
-          Karty (Seznam)
-        </button>
-        <button type="button" id="tab-grid" class="main-tab" role="tab" aria-selected="false">
-          New (Tabulka na 1 stránku)
-        </button>
-      </nav>
-
-      <!-- Nadpis vybraného dne -->
-      <h2 class="day-heading" id="day-heading">Načítám rozvrh…</h2>
-    </div>
-
-    <!-- Ovládací prvky -->
+    <!-- Kompaktní horní lišta: výběr dne + nadpis dne + rychlý filtr třídy -->
     <section class="controls-panel" aria-label="Výběr dne a filtrování">
-      <div class="date-tabs" id="date-tabs" role="tablist" aria-label="Výběr dne"></div>
-
-      <div class="filters-row" id="filters-row">
-        <div class="view-switcher" role="group" aria-label="Režim zobrazení">
-          <button type="button" id="btn-view-classes" class="view-btn active" aria-pressed="true">
-            Podle tříd
-          </button>
-          <button type="button" id="btn-view-teachers" class="view-btn" aria-pressed="false">
-            Podle učitelů (odvozeno)
-          </button>
-        </div>
-
-        <div class="filter-controls">
-          <select id="entity-select" class="filter-select" aria-label="Filtr třídy nebo učitele">
+      <div class="controls-top-row">
+        <div class="date-tabs" id="date-tabs" role="tablist" aria-label="Výběr dne"></div>
+        <div class="inline-filter">
+          <select id="entity-select" class="filter-select" aria-label="Filtr třídy">
             <option value="">Všechny třídy</option>
           </select>
           <input
             type="search"
             id="search-input"
             class="filter-input"
-            placeholder="Hledat třídu, učitele, předmět, učebnu…"
+            placeholder="Hledat třídu, učitele, učebnu…"
             aria-label="Hledat v rozvrhu"
           >
-          <button type="button" id="btn-clear-filter" class="btn-clear">Zrušit filtr</button>
+          <button type="button" id="btn-clear-filter" class="btn-clear hidden">Zrušit</button>
         </div>
+        <h2 class="day-heading" id="day-heading">Načítám rozvrh…</h2>
       </div>
     </section>
 
-    <!-- Varianta New: celý den v jedné přehledné tabulce na 1 stránku -->
-    <section id="grid-view" class="grid-view hidden" aria-label="Přehled dne v jedné tabulce"></section>
-
-    <!-- Hlavní karty změn (podle tříd nebo podle učitelů) -->
-    <section id="changes-container" class="cards-grid" aria-live="polite"></section>
-
-    <!-- Doplňkové sekce dne -->
-    <section id="supervisions-section" class="section-block hidden">
-      <h3>Pedagogické dohledy u tříd</h3>
-      <div id="supervisions-content"></div>
-    </section>
-
-    <section id="absent-teachers-section" class="section-block hidden">
-      <h3>Nepřítomní učitelé (mřížka hodin 1–10)</h3>
-      <div class="table-scroll" id="absent-teachers-content"></div>
-    </section>
-
-    <section id="absent-classes-section" class="section-block hidden">
-      <h3>Nepřítomné třídy (mřížka hodin 1–10)</h3>
-      <div class="table-scroll" id="absent-classes-content"></div>
-    </section>
-
-    <section id="closed-rooms-section" class="section-block hidden">
-      <h3>Místnosti mimo provoz (mřížka hodin 1–10)</h3>
-      <div class="table-scroll" id="closed-rooms-content"></div>
-    </section>
-
-    <section id="unrecognized-section" class="section-block hidden">
-      <h3>Nerozpoznané položky v exportu</h3>
-      <div id="unrecognized-content"></div>
-    </section>
+    <!-- Hlavní tabulka celého dne na 1 stránku -->
+    <section id="grid-view" class="grid-view" aria-live="polite" aria-label="Přehled dne v tabulce"></section>
   </main>
-
-  <footer class="footer">
-    <span>Suplování Viewer (lokální školní intranet)</span>
-    <span id="admin-link-wrap"> · <a href="/admin/status">Stav systému (/admin/status)</a></span>
-  </footer>
 
   <button type="button" id="btn-kiosk-exit" class="kiosk-exit hidden" aria-label="Ukončit celou obrazovku">
     Ukončit celou obrazovku (Esc)
   </button>
 
-  <script src="static-mode.js"></script>
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
