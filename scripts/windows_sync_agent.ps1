@@ -3,7 +3,7 @@
 # Spusteni: powershell -ExecutionPolicy Bypass -File C:\Krizik\windows_sync_agent.ps1
 
 param(
-    [string]$WatchFolder = "$env:USERPROFILE\Desktop\SuplovaniExport",
+    [string]$WatchFolder = ([Environment]::GetFolderPath("Desktop") + "\SuplovaniExport"),
     [string]$ServerUrl = "http://10.20.0.81:8080/api/upload/krizik-supl-tajny-klic-2026",
     [string]$TargetFileName = "suplprehtrid.html",
     [int]$IntervalSeconds = 15,
