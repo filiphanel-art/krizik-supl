@@ -469,6 +469,13 @@ def parse_suplovani_html(
     """Zpracuje surové bajty HTML exportu Bakaláři – Suplování a vrátí ParseResult."""
     html_text, detected_encoding = detect_and_decode(raw_bytes, max_size_bytes=max_size_bytes)
 
+    if "DateEdit" in html_text or "zmeny.aspx" in html_text:
+        from app.parser_web import parse_web_zmeny_html
+
+        web_res = parse_web_zmeny_html(html_text, known_teachers=known_teachers)
+        web_res.file_name = file_name
+        return web_res
+
     soup = BeautifulSoup(html_text, "lxml")
     tables = soup.find_all("table")
     if not tables:

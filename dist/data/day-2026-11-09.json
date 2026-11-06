@@ -5,6 +5,9 @@
   "school_name": "Vyšší odborná škola a Střední průmyslová škola elektrotechnická Františka Křižíka",
   "exported_at": "2026-11-09T07:15:00+01:00",
   "exported_at_display": "9. 11. 2026 07:15",
+  "data_source": "file",
+  "source_label": "Soubor (Bakaláři export)",
+  "fetched_at": "",
   "absent_classes": [],
   "absent_teachers": [
     {
@@ -67,7 +70,7 @@
   "closed_rooms": [],
   "class_changes": [
     {
-      "id": 821,
+      "id": 925,
       "date": "2026-11-09",
       "class_name": "2A",
       "hour_from": 1,
@@ -88,7 +91,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 822,
+      "id": 926,
       "date": "2026-11-09",
       "class_name": "2A",
       "hour_from": 2,
@@ -109,7 +112,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 823,
+      "id": 927,
       "date": "2026-11-09",
       "class_name": "2A",
       "hour_from": 3,

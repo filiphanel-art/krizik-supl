@@ -32,6 +32,9 @@ class AppConfig(BaseModel):
     )
     teacher_codes: dict[str, str] = Field(default_factory=dict)
     upload_token: str = Field(default="")
+    web_url: str = Field(default="https://klasifikace.skolakrizik.cz/next/zmeny.aspx")
+    web_poll_interval_seconds: float = Field(default=300.0, ge=60.0)
+    web_enabled: bool = Field(default=False)
 
 
 def _parse_bool(val: str) -> bool:
@@ -64,6 +67,9 @@ def load_config(config_path: Path | None = None) -> AppConfig:
         "SUPL_ADMIN_USERNAME": ("admin_username", str),
         "SUPL_ADMIN_PASSWORD": ("admin_password", str),
         "SUPL_UPLOAD_TOKEN": ("upload_token", str),
+        "SUPL_WEB_URL": ("web_url", str),
+        "SUPL_WEB_POLL_INTERVAL_SECONDS": ("web_poll_interval_seconds", float),
+        "SUPL_WEB_ENABLED": ("web_enabled", _parse_bool),
     }
 
     for env_key, (field_name, converter) in env_map.items():

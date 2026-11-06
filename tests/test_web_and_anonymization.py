@@ -487,3 +487,171 @@ def test_strip_06_regression_layout_and_kiosk() -> None:
     assert ".strip-teachers" in css
     assert ".strip-sub-teachers" in css
     assert "flex: 1 1 320px" in css
+
+
+def test_fetch_resilience_01(tmp_path: Path) -> None:
+    """TEST-FETCH-RESILIENCE-01: Webový server vrací HTTP 503 nebo timeout.
+    WebFetcher odchytí chybu, zapíše varování do logu, aplikace nespadne, existující data v DB zůstanou zachována.
+    """
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+    from app.parser import parse_suplovani_html
+
+    async def _async_scenario() -> None:
+        db_path = tmp_path / "supl.db"
+        storage = Storage(db_path)
+
+        raw = (SAMPLES_DIR / "suplprehtrid.html").read_bytes()
+        res = parse_suplovani_html(raw, file_name="suplprehtrid.html")
+        storage.save_parse_result(res, file_hash="samplehash", file_size=len(raw))
+        initial_dates = storage.list_available_dates()
+        assert len(initial_dates) == 5
+
+        cfg = AppConfig(
+            db_path=db_path,
+            web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+            web_poll_interval_seconds=300.0,
+        )
+        fetcher = WebFetcher(cfg, storage)
+
+        # 1. Test HTTP 503
+        mock_503_resp = httpx.Response(503, request=httpx.Request("GET", cfg.web_url))
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = mock_503_resp
+            success = await fetcher.fetch_once()
+            assert success is False
+
+        # Ověříme, že data v DB zůstala netknutá
+        dates_after_503 = storage.list_available_dates()
+        assert len(dates_after_503) == 5
+
+        # 2. Test Timeout
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = httpx.TimeoutException("Connection timed out")
+            success = await fetcher.fetch_once()
+            assert success is False
+
+        # Ověříme, že data v DB stále existují
+        dates_after_timeout = storage.list_available_dates()
+        assert len(dates_after_timeout) == 5
+
+    asyncio.run(_async_scenario())
+
+
+def test_storage_hybrid_01(tmp_path: Path) -> None:
+    """TEST-STORAGE-HYBRID-01: V databázi je týdenní soubor (Po–Pá).
+    Stažen web pro pátek (data_source = 'web').
+    Po–Čt mají data_source = 'file', Pátek má data_source = 'web'. Žádný jiný den nebyl smazán.
+    """
+    from app.database import Storage
+    from app.parser import parse_suplovani_html
+    from app.parser_web import parse_web_zmeny_html
+
+    storage = Storage(tmp_path / "hybrid.db")
+    raw_file = (SAMPLES_DIR / "suplprehtrid.html").read_bytes()
+    res_file = parse_suplovani_html(raw_file, file_name="suplprehtrid.html")
+    storage.save_parse_result(res_file, file_hash="filehash1", file_size=len(raw_file))
+
+    # Ověříme výchozí dny
+    dates_pre = storage.list_available_dates()
+    assert len(dates_pre) == 5
+    for d in dates_pre:
+        day_pre = storage.get_day(d["date"])
+        assert day_pre is not None
+        assert day_pre.data_source == "file"
+
+    # Uložíme webový export pro pátek (2026-11-06)
+    raw_web = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    res_web = parse_web_zmeny_html(raw_web)
+    friday_web = res_web.days[0]
+    friday_web.fetched_at = "2026-11-06T12:00:00+01:00"
+
+    saved = storage.save_web_day(friday_web, source_hash="webhash1")
+    assert saved is True
+
+    # Ověření: Po–Čt mají data_source = 'file', Pátek má data_source = 'web'
+    all_dates = storage.list_available_dates()
+    assert len(all_dates) == 5
+    for d_info in all_dates:
+        d_obj = storage.get_day(d_info["date"])
+        assert d_obj is not None
+        if d_info["date"] == "2026-11-06":
+            assert d_obj.data_source == "web"
+            assert d_obj.source_label == "Web (klasifikace.skolakrizik.cz)"
+        else:
+            assert d_obj.data_source == "file"
+            assert d_obj.source_label == "Soubor (Bakaláři export)"
+
+
+def test_api_source_01(tmp_path: Path) -> None:
+    """TEST-API-SOURCE-01: Volání /api/schedule pro den ze souboru a z webu.
+    JSON obsahuje pole data_source a source_label.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.parser import parse_suplovani_html
+    from app.parser_web import parse_web_zmeny_html
+    from app.web import create_app
+
+    db_path = tmp_path / "api_test.db"
+    storage = Storage(db_path)
+    raw_file = (SAMPLES_DIR / "suplprehtrid.html").read_bytes()
+    res_file = parse_suplovani_html(raw_file, file_name="suplprehtrid.html")
+    storage.save_parse_result(res_file, file_hash="hash_f", file_size=len(raw_file))
+
+    raw_web = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    res_web = parse_web_zmeny_html(raw_web)
+    friday = res_web.days[0]
+    friday.fetched_at = "2026-11-06T12:00:00+01:00"
+    storage.save_web_day(friday, source_hash="hash_w")
+
+    cfg = AppConfig(db_path=db_path, watch_dir=tmp_path / "watch")
+    app = create_app(cfg, storage=storage, start_watcher=False)
+    client = TestClient(app)
+
+    # 1. Požadavek na pondělí (ze souboru)
+    r_mon = client.get("/api/schedule?date=2026-11-02")
+    assert r_mon.status_code == 200
+    data_mon = r_mon.json()
+    assert data_mon["day"]["data_source"] == "file"
+    assert data_mon["day"]["source_label"] == "Soubor (Bakaláři export)"
+
+    # 2. Požadavek na pátek (z webu)
+    r_fri = client.get("/api/schedule?date=2026-11-06")
+    assert r_fri.status_code == 200
+    data_fri = r_fri.json()
+    assert data_fri["day"]["data_source"] == "web"
+    assert data_fri["day"]["source_label"] == "Web (klasifikace.skolakrizik.cz)"
+
+    # 3. Kontrola seznamu 'dates' v odpovědi
+    for date_entry in data_fri["dates"]:
+        assert "data_source" in date_entry
+        assert "source_label" in date_entry
+
+
+def test_ui_indicators_01() -> None:
+    """TEST-UI-INDICATORS-01: Kontrola přítomnosti indikátorů Online/Offline a zdroje v index.html a app.js/styles.css."""
+    static_dir = Path(__file__).resolve().parent.parent / "app" / "static"
+    index_html = (static_dir / "index.html").read_text(encoding="utf-8")
+    app_js = (static_dir / "app.js").read_text(encoding="utf-8")
+    styles_css = (static_dir / "styles.css").read_text(encoding="utf-8")
+
+    assert 'id="connection-indicator"' in index_html
+    assert 'id="source-badge"' in index_html
+
+    assert ".connection-indicator" in styles_css
+    assert ".status-dot" in styles_css
+    assert ".source-badge" in styles_css
+
+    assert "connectionIndicator" in app_js or "connection-indicator" in app_js
+    assert "sourceBadge" in app_js or "source-badge" in app_js
+    assert "data_source" in app_js
+

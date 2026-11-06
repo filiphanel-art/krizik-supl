@@ -1,90 +1,74 @@
-# Implementation Plan: Nahrazení učeben mimo provoz suplujícími učiteli a modernizace štítků dne
+# Implementation Plan: Hybridní integrace webu zmeny.aspx, oficiální slovník zkratek a indikátory UI
 
 ## Summary
-Tento implementační plán řeší Požadavek 3 zadavatele na úpravu souhrnné lišty dne (`grid-strip` v hlavním rozhraní `app/static/app.js` a `app/static/styles.css`):
-1. Nahrazení bloku 'Učebny mimo provoz' (`strip-rooms`) novým blokem 'Suplující učitelé' (`strip-sub-teachers`).
-2. Implementaci deterministické klientské logiky pro extrakci, dedupikaci a seskupení vyučovacích hodin suplujících pedagogů (např. 'Novák Zdeněk (1., 3. hod)').
-3. Úplné odstranění bloku 'Dohledy' (`strip-sup` / `supervisions`) ze souhrnné lišty dne pro odlehčení vizuálního smogu a zachování maximálního vertikálního prostoru pro hlavní rozvrhovou tabulku.
-4. Přechod od nepřehledných textových řetězců oddělených svislítky k moderním, vysoce kontrastním vizuálním štítkům (pilulkám / tagům) s vizuálně odděleným jménem a rozsahem hodin pro nepřítomné i suplující učitele.
-5. Zajištění plné kompatibility s anonymizovaným režimem (`export-static`, kde se zobrazují zkratky/iniciály), responsivním zobrazením pro mobilní telefony a automatickým kiosk režimem.
+Tento implementační plán rozšiřuje aplikaci **Suplování Viewer (Křižík)** o podporu hybridního vícezdrojového získávání dat a kompletní oficiální adresář pedagogů:
+1. **Oficiální slovník pedagogů (`Učitelé_zkratky.xlsx`)**: Integrace kompletního adresáře 55 pedagogů VOŠ a SPŠE Františka Křižíka do výchozí konfigurace (`config.yaml`) a databáze pro 100% spolehlivé párování zkratek na plná jména i anonymizaci.
+2. **Webový parser pro `next/zmeny.aspx` (`app/parser_web.py`)**: Samostatný robustní parser pro jednodenní HTML výstupy z webové aplikace Bakalářů (parsování data z `#DateEdit_I`, tabulek `Nepřítomné třídy`, `Nepřítomní učitelé`, `Místnosti mimo provoz` a `Změny v rozvrzích tříd` včetně titulkových atributů `title` pro jména pedagogů).
+3. **Odolný periodický web fetcher (`app/fetcher.py`)**: Asynchronní stahovač postavený na `httpx` s ochranou proti častým pádům webu Bakalářů (detekce a bezpečný záchyt HTTP 503 Service Unavailable, 500, timeoutů a síťových chyb bez pádu služby, uplatnění exponenciálního backoffu).
+4. **Hybridní SQLite úložiště & slučovací strategie (`app/database.py`)**: Rozšíření schématu o příznak `data_source` (`'file'` | `'web'`), čas získání `fetched_at` a kontrolní hash. Slučovací logika zachovává týdenní přehled z desktopového souboru a aktualizuje vybraný den z webu pouze tehdy, pokud je web novější nebo pokud soubor pro daný den chybí. Při výpadku webu zůstávají v databázi netknutá poslední platná data.
+5. **Rozšíření API (`/api/schedule`, `/api/status`)**: Expozice informací o zdroji pro každý den (`data_source`, `source_label`), časového razítka a stavu webového fetcheru.
+6. **Indikátory v uživatelském rozhraní (`index.html`, `app.js`, `styles.css`)**:
+   - Vizuální stavový indikátor **Online / Offline** v záhlaví s barevným pulzujícím bodem a přístupností pro čtečky obrazovky (`aria-live`).
+   - Přesný indikátor zdroje dat pro zobrazený den: **"Zdroj: Soubor (Bakaláři export)"** vs. **"Zdroj: Web (klasifikace.skolakrizik.cz)"**.
 
 ## Interfaces
-Změna se dotýká výhradně prezentační vrstvy (Frontend DOM & CSS). Datová schémata backendu (`ScheduleDay`, `ClassChange`) a REST API kontrakty `/api/schedule` zůstávají plně zachovány (Backward Compatible).
 
-### 1. Klientské datové rozhraní (Vanilla JS logika):
-- **Funkce `extractSubstitutingTeachers(changes: Array<ClassChange>): Array<{ teacher: string, hoursText: string }>`**:
-  - Filtruje změny z `day.class_changes`, kde je neprázdný `sub_teacher` a změna představuje aktivní zásah pedagoga (`change_type === "SUPLOVANI" || change_type === "SPOJENO" || (sub_teacher_changed && change_type !== "ZMENA_UCEBNY")`).
-  - Seskupuje unikátní vyučovací hodiny (`hour_from..hour_to`) pro každého suplujícího pedagoga do `Set<number>`.
-  - Řadí seznam pedagogů abecedně podle českých pravidel (`localeCompare("cs")`).
-  - Formátuje hodiny pomocí kompresního algoritmu souvislých rozsahů: např. `[1, 3]` -> `"1., 3. hod"`, `[2, 3, 4]` -> `"2.–4. hod"`, `[1, 2, 5]` -> `"1.–2., 5. hod"`.
+### 1. Oficiální slovník zkratek učitelů (`config.yaml` / `app/config.py`)
+55 oficiálních zkratek pedagogů z `Učitelé_zkratky.xlsx` je uloženo do `teacher_codes` v `config.yaml` (např. `Ko: "Kodad Miloš"`, `Vl: "Valtr Pavel"`, `Bj: "Bajerová Markéta"`, `Hf: "Hanel Filip"`). Tento slovník slouží jako primární autorita pro dekódování zkratek i pro anonymizační modul.
 
-- **Funkce `formatHoursList(hours: Array<number>): string`**:
-  - Deterministický formátovač intervalů s podporou nesouvislých hodin.
+### 2. Backendové modely a parser (`app/models.py`, `app/parser_web.py`)
+- **Rozšíření `ScheduleDay`**:
+  - `data_source: str = "file"` (`"file"` | `"web"`)
+  - `source_label: str = "Soubor (Bakaláři export)"`
+  - `fetched_at: str = ""` (ISO 8601)
+- **Funkce `parse_web_zmeny_html(html_content: str | bytes, known_teachers: dict[str, str] | None = None) -> ParseResult`**:
+  - Parsování data z `#DateEdit_I` (formát `DD.MM.YYYY`), záložně z `h1`.
+  - Parsování tabulek `datagrid`: Nepřítomné třídy, Nepřítomní učitelé (s mřížkou 1..10 a zkratkami), Místnosti mimo provoz.
+  - Parsování tabulky Změny v rozvrzích tříd: třída, hodina od-do, předmět, učebna, typ změny (`odpadá`, `spojí`, `supluje`, `změna`), suplující učitel (včetně `title`), původní učitel.
 
-- **Funkce `createTeacherPill(name: string, hoursText: string, variant: 'absent' | 'sub'): HTMLElement`**:
-  - Vytváří DOM element `<div class="teacher-pill pill-{variant}">`:
-    - `<span class="pill-name">Jméno Učitele</span>`
-    - `<span class="pill-hours">1., 3. hod</span>`
+### 3. Asynchronní Web Fetcher (`app/fetcher.py`)
+- **Třída `WebFetcher`**:
+  - Metody `async def fetch_once() -> bool`, `async def run_loop(stop_event: asyncio.Event) -> None`.
+  - `httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0), follow_redirects=True)`.
+  - Whitelist cílových hostitelů: `["klasifikace.skolakrizik.cz"]` s validací schématu `https://`.
+  - Bezpečný záchyt `HTTPStatusError` (503, 502, 500), `TimeoutException`, `RequestError`.
+  - Interval dotazování: výchozí 300 s (konfigurovatelné `SUPL_WEB_POLL_INTERVAL_SECONDS`).
 
-### 2. DOM struktura v `.grid-strip`:
-```html
-<div class="grid-strip">
-  <!-- Blok 1: Nepřítomní učitelé -->
-  <div class="strip-box strip-teachers">
-    <div class="strip-header">Nepřítomní učitelé:</div>
-    <div class="strip-pills">
-      <div class="teacher-pill pill-absent">
-        <span class="pill-name">Kodad Miloš (Ko)</span>
-        <span class="pill-hours">1.–7. hod</span>
-      </div>
-    </div>
-  </div>
+### 4. Hybridní databázové úložiště (`app/database.py`)
+- Rozšíření tabulky `schedule_days` o sloupce `data_source`, `source_label`, `fetched_at`, `source_hash`.
+- Metoda `save_web_day(day: ScheduleDay, source_hash: str)`:
+  - Aktualizuje výhradně jediný den $D$, ostatní dny týdne ponechává nedotčené.
+  - Pokud stávající den pochází ze souboru a je novější než web, soubor má přednost.
+  - Při chybě webu zůstávají v platnosti poslední uložená data.
 
-  <!-- Blok 2: Suplující učitelé (nahrazuje původní strip-rooms a strip-sup) -->
-  <div class="strip-box strip-sub-teachers">
-    <div class="strip-header">Suplující učitelé:</div>
-    <div class="strip-pills">
-      <div class="teacher-pill pill-sub">
-        <span class="pill-name">Valtr Pavel (Vl)</span>
-        <span class="pill-hours">1., 4. hod</span>
-      </div>
-    </div>
-  </div>
-</div>
-```
-
-### 3. CSS rozhraní (`styles.css`):
-- Přidání tříd `.strip-header`, `.strip-pills`, `.teacher-pill`, `.pill-absent`, `.pill-sub`, `.pill-name`, `.pill-hours`, `.strip-empty`.
-- Úprava rozložení `.strip-teachers` a `.strip-sub-teachers`: obě komponenty mají symetrický `flex: 1 1 320px;`, což zajišťuje perfektní dvousloupcový layout na širokoúhlých obrazovkách a čisté zalomení pod sebe na mobilních zařízeních.
+### 5. Frontendové komponenty (`app.js`, `styles.css`, `index.html`)
+- **Indikátor Online / Offline (`#connection-indicator`)**:
+  - Pulzující zelený bod pro Online, výrazný červený pro Offline.
+  - Sledování událostí sítě i úspěšnosti API volání.
+- **Indikátor zdroje dat (`#source-badge`)**:
+  - Umístění v ovládací liště vedle nadpisu dne.
+  - Zobrazení: `Zdroj: Soubor (Bakaláři export)` nebo `Zdroj: Web (klasifikace.skolakrizik.cz)` s odpovídající ikonou a CSS třídou.
 
 ## Dependencies
-Pro tuto změnu **nejsou navrhovány žádné nové externí knihovny**. Implementace striktně dodržuje stávající architekturu projektu (Vanilla JS + čisté CSS bez build dependencies).
-
-Přehled stávajících schválených závislostí projektu:
-1. **FastAPI (`>=0.115.0`)** – URL: https://fastapi.tiangolo.com/ – Licence: MIT
-2. **Pydantic (`>=2.7.0`)** – URL: https://docs.pydantic.dev/ – Licence: MIT
-3. **BeautifulSoup4 (`>=4.12.3`) & lxml (`>=5.2.0`)** – URL: https://www.crummy.com/software/BeautifulSoup/ – Licence: MIT / BSD-3-Clause
-4. **Charset-normalizer (`>=3.3.2`)** – URL: https://charset-normalizer.readthedocs.io/ – Licence: MIT
-5. **Watchdog (`>=4.0.0`)** – URL: https://gorakhargosh.github.io/watchdog/ – Licence: Apache-2.0
+- **HTTPX (`>=0.27.0`)**: Přidáno do `pyproject.toml` (BSD-3-Clause, 0 známých CVE).
+- Ostatní knihovny beze změny: BeautifulSoup4, lxml, FastAPI, Pydantic, Watchdog.
 
 ## Test Specs
-
 | Test ID | Typ testu | Testovací scénář a Edge-cases | Očekávaný výsledek |
 |---|---|---|---|
-| `TEST-STRIP-01` | Unit (Frontend Logic) | Žádný suplující učitel v daném dni (pouze ODPADA nebo CELODENNI_AKCE). | V bloku 'Suplující učitelé' se vykreslí `<span class="strip-empty">žádní</span>`. |
-| `TEST-STRIP-02` | Unit (Frontend Logic) | Vícenásobné a nesouvislé hodiny téhož pedagoga (např. 1., 3., 7. hodina). | Učitel je v seznamu obsažen právě jednou se správně seřazenými hodinami `'1., 3., 7. hod'`. |
-| `TEST-STRIP-03` | Unit (Frontend Logic) | Souvislý blok suplování (Range Compression): hodiny 2, 3, 4. | Hodiny jsou zkomprimovány do rozsahu `'2.–4. hod'`. |
-| `TEST-STRIP-04` | Integration (DOM & API) | Kompletní vykreslení vzorku `suplprehtrid.html` (5. 11. 2026). | Bloky `strip-rooms` a `strip-sup` nejsou v DOMu. Jsou přítomny bloky `strip-teachers` a `strip-sub-teachers`. |
-| `TEST-STRIP-05` | Integration (Security & Anonymization) | Anonymizovaný režim (`export-static`). | Štítky zobrazují výhradně zkratky či iniciály, žádné plné příjmení učitele neunikne. |
-| `TEST-STRIP-06` | Regression (Layout & Kiosk) | Dlouhý seznam učitelů (např. 15 nepřítomných a 12 suplujících). | Flex-wrap layout přirozeně zalomí pilulky do více řádků, nepřeteče přes okraj obrazovky. |
+| `TEST-TEACHERS-DICT-01` | Unit | Načtení 55 učitelů z konfigurace `teacher_codes`. | Slovník obsahuje přesně 55 kódů (např. `Ko -> Kodad Miloš`, `Vl -> Valtr Pavel`, `Hf -> Hanel Filip`). |
+| `TEST-WEB-PARSE-01` | Unit | Parsování reálného souboru `samples/zmeny_web_sample.html`. | Datum úspěšně detekováno jako `2026-11-06`, den `Pátek`. Extrahovány třídy, učitelé i místnosti. Všechny změny v rozvrzích tříd (1A, 1B, 4D, V2) naparsovány. |
+| `TEST-WEB-PARSE-02` | Unit | Parsování titulkových atributů `title` u učitelů (např. `<span title="Blažek Martin">Ba</span>`). | Zkratky jsou správně provázány na plná jména ve slovníku `known_teachers`. |
+| `TEST-FETCH-RESILIENCE-01` | Integration | Webový server vrací HTTP 503 nebo timeout. | `WebFetcher` odchytí chybu, zapíše varování do logu, aplikace nespadne, existující data v DB zůstanou zachována. |
+| `TEST-STORAGE-HYBRID-01` | Integration | V databázi je týdenní soubor (Po–Pá). Stažen web pro pátek (`data_source = 'web'`). | Po–Čt mají `data_source = 'file'`, Pátek má `data_source = 'web'`. Žádný jiný den nebyl smazán. |
+| `TEST-API-SOURCE-01` | Integration | Volání `/api/schedule` pro den ze souboru a z webu. | JSON obsahuje pole `data_source` a `source_label`. |
+| `TEST-UI-INDICATORS-01` | DOM/Frontend | Simulace stavu online/offline a přepnutí zdroje dat. | Indikátor Online/Offline reaguje na stav sítě, štítek zdroje zobrazuje správný text. |
 
 ## Security Considerations
-1. Ochrana proti XSS: Všechna jména a texty vkládány výhradně přes `textContent`. Přísný zákaz `innerHTML`.
-2. Content-Security-Policy (CSP): Veškeré stylování v externím CSS souboru `styles.css`.
-3. GDPR: V anonymizovaném režimu se uplatní anonymizační slovník; do DOMu nesmí proniknout plná jména.
+1. **SSRF prevence**: Striktní whitelist domény `klasifikace.skolakrizik.cz`, vynucení HTTPS, zákaz privátních a cloud metadata IP adres.
+2. **DoS a Resource Exhaustion**: Connect timeout 5 s, read timeout 10 s, limit velikosti odpovědi 5 MB, minimální interval mezi dotazy 60 s.
+3. **XSS ochrana**: Veškerý obsah z HTML webu Bakalářů je vkládán do DOMu výhradně přes `textContent`.
 
 ## Open Questions & Doporučení
-1. *Otázka ke specifikaci typu změny:* Zahrnovat i `SPOJENO`?
-   *Doporučení:* Ano, pedagog přebírá zodpovědnost za spojenou třídu.
-2. *Otázka k formátu jmen:* Zobrazovat 'Valtr Pavel (1., 4. hod)' bez detailu za koho?
-   *Doporučení:* Ano, pro přehlednost v hlavičce pouze suplující učitel a hodiny. Detailní vazba je v konkrétní buňce rozvrhu.
+1. *Frekvence stahování webu:* Doporučujeme výchozí interval 5 minut (300 s) s okamžitým záchytem 503 a odložením dalšího pokusu o 1 minutu.
+2. *Priorita při shodném datu:* Doporučujeme, aby souborový export měl přednost před webem, pokud je soubor novější (má vyšší nebo rovné `exported_at`). Pokud je soubor starší než web, web aktualizuje daný den.

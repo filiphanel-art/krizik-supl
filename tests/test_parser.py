@@ -199,3 +199,74 @@ def test_corrupted_or_empty_html_raises_parse_error() -> None:
 
     with pytest.raises(ParseError):
         parse_suplovani_html(b"a" * 2048, max_size_bytes=1024)
+
+
+def test_teachers_dict_01() -> None:
+    """TEST-TEACHERS-DICT-01: Načtení 55 učitelů z konfigurace teacher_codes."""
+    from app.config import load_config
+
+    cfg = load_config()
+    assert len(cfg.teacher_codes) == 55
+    assert cfg.teacher_codes["Ko"] == "Kodad Miloš"
+    assert cfg.teacher_codes["Vl"] == "Valtr Pavel"
+    assert cfg.teacher_codes["Hf"] == "Hanel Filip"
+    assert cfg.teacher_codes["Bj"] == "Bajerová Markéta"
+    assert cfg.teacher_codes["Št"] == "Šťastný Ondřej"
+
+
+def test_web_parse_01() -> None:
+    """TEST-WEB-PARSE-01: Parsování reálného souboru samples/zmeny_web_sample.html."""
+    from app.parser_web import parse_web_zmeny_html
+
+    raw = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    res = parse_web_zmeny_html(raw)
+    assert len(res.days) == 1
+    day = res.days[0]
+    assert day.date == "2026-11-06"
+    assert day.day_name == "Pátek"
+    assert day.data_source == "web"
+    assert day.source_label == "Web (klasifikace.skolakrizik.cz)"
+    assert "Křižík" in day.school_name
+
+    # Extrahovány třídy, učitelé i místnosti
+    assert len(day.absent_classes) >= 1
+    assert any(ac.class_name == "V2" for ac in day.absent_classes)
+
+    assert len(day.absent_teachers) >= 5
+    absent_teacher_names = {at.teacher_full_name for at in day.absent_teachers}
+    assert "Hanel Filip" in absent_teacher_names
+    assert "Kodad Miloš" in absent_teacher_names
+    assert "Maňák Tomáš" in absent_teacher_names
+
+    assert len(day.closed_rooms) >= 1
+    assert any(cr.room_name == "7" for cr in day.closed_rooms)
+
+    # Všechny změny v rozvrzích tříd (1A, 1B, 4D, V2) naparsovány
+    classes_in_changes = {ch.class_name for ch in day.class_changes}
+    assert {"1A", "1B", "4D", "V2"}.issubset(classes_in_changes)
+
+    # 1A má odpadající Ma a spojenou Aj
+    ch_1a = [ch for ch in day.class_changes if ch.class_name == "1A"]
+    assert any(ch.subject == "Ma" and ch.change_type == ChangeType.ODPADA for ch in ch_1a)
+    assert any(ch.subject == "Aj" and ch.change_type == ChangeType.SPOJENO for ch in ch_1a)
+
+    # V2 má celodenní praxi
+    ch_v2 = [ch for ch in day.class_changes if ch.class_name == "V2"]
+    assert len(ch_v2) == 1
+    assert ch_v2[0].hour_from == 1 and ch_v2[0].hour_to == 7
+    assert ch_v2[0].change_type == ChangeType.CELODENNI_AKCE
+    assert "praxe" in ch_v2[0].subject.lower() or "praxe" in ch_v2[0].note.lower()
+
+
+def test_web_parse_02() -> None:
+    """TEST-WEB-PARSE-02: Parsování titulkových atributů title u učitelů."""
+    from app.parser_web import parse_web_zmeny_html
+
+    raw = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    res = parse_web_zmeny_html(raw)
+    assert res.teacher_directory.get("Ba") == "Blažek Martin"
+    assert res.teacher_directory.get("Le") == "Ledvina David"
+    assert res.teacher_directory.get("Pl") == "Poul Richard"
+    assert res.teacher_directory.get("Vl") == "Valtr Pavel"
+    assert res.teacher_directory.get("Nz") == "Novák Zdeněk"
+

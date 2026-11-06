@@ -617,3 +617,101 @@ body.kiosk .container {
     width: 100%;
   }
 }
+
+/* Indikátor Online / Offline */
+.connection-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  user-select: none;
+}
+
+.connection-indicator.online {
+  background: rgba(46, 125, 50, 0.28);
+  border-color: rgba(76, 175, 80, 0.55);
+}
+
+.connection-indicator.offline {
+  background: rgba(211, 47, 47, 0.38);
+  border-color: rgba(239, 83, 80, 0.65);
+  color: #ffebee;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  background-color: #4caf50;
+  transition: background-color 0.2s;
+}
+
+.connection-indicator.online .status-dot {
+  background-color: #4caf50;
+  box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  animation: pulse-green 2s infinite;
+}
+
+.connection-indicator.offline .status-dot {
+  background-color: #f44336;
+  animation: none;
+}
+
+@keyframes pulse-green {
+  0% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(76, 175, 80, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+  }
+}
+
+/* Indikátor zdroje dat */
+.heading-with-source {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  vertical-align: middle;
+}
+
+.source-badge .source-icon {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+  display: inline-block;
+}
+
+.source-badge.source-file {
+  background: #e3f2fd;
+  color: #0d47a1;
+  border: 1px solid #90caf9;
+}
+
+.source-badge.source-web {
+  background: #e8f5e9;
+  color: #1b5e20;
+  border: 1px solid #a5d6a7;
+}
+

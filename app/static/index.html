@@ -19,6 +19,10 @@
         <p class="school-subtitle" id="header-subtitle">Přehled suplování a změn v rozvrhu</p>
       </div>
       <div class="header-actions">
+        <div id="connection-indicator" class="connection-indicator online" role="status" aria-live="polite" title="Stav spojení: Online">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="status-text" id="connection-text">Online</span>
+        </div>
         <button
           type="button"
           id="btn-fullscreen"
@@ -84,7 +88,13 @@
           >
           <button type="button" id="btn-clear-filter" class="btn-clear hidden">Zrušit</button>
         </div>
-        <h2 class="day-heading" id="day-heading">Načítám rozvrh…</h2>
+        <div class="heading-with-source">
+          <h2 class="day-heading" id="day-heading">Načítám rozvrh…</h2>
+          <span id="source-badge" class="source-badge source-file" role="status" title="Zdroj dat">
+            <span class="source-icon" aria-hidden="true"></span>
+            <span class="source-text" id="source-badge-text">Zdroj: Soubor (Bakaláři export)</span>
+          </span>
+        </div>
       </div>
     </section>
 

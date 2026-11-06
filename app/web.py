@@ -21,6 +21,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from app.anonymizer import anonymize_schedule_day
 from app.config import AppConfig, load_config
 from app.database import Storage
+from app.fetcher import WebFetcher
 from app.logging_setup import setup_logging
 from app.watcher import FolderWatcher
 
@@ -227,14 +228,21 @@ def _render_admin_html(status_data: dict[str, Any], watcher_running: bool, watch
 
 def create_app(
     config: AppConfig | None = None,
+    storage: Storage | None = None,
     start_watcher: bool = True,
 ) -> FastAPI:
     """Vytvoří a nakonfiguruje instanci FastAPI aplikace."""
     cfg = config or load_config()
     logger = setup_logging(cfg.log_dir)
-    storage = Storage(cfg.db_path)
+    storage = storage or Storage(cfg.db_path)
     broadcaster = EventBroadcaster()
     watcher = FolderWatcher(
+        config=cfg,
+        storage=storage,
+        logger=logger,
+        on_update=broadcaster.publish_threadsafe,
+    )
+    fetcher = WebFetcher(
         config=cfg,
         storage=storage,
         logger=logger,
@@ -248,9 +256,21 @@ def create_app(
             watcher.start()
         else:
             watcher.scan_once()
+
+        fetcher_stop_event = asyncio.Event()
+        fetcher_task: asyncio.Task[None] | None = None
+        if cfg.web_enabled:
+            fetcher_task = asyncio.create_task(fetcher.run_loop(fetcher_stop_event))
+
         try:
             yield
         finally:
+            if fetcher_task is not None:
+                fetcher_stop_event.set()
+                try:
+                    await asyncio.wait_for(fetcher_task, timeout=2.0)
+                except (TimeoutError, asyncio.CancelledError):
+                    fetcher_task.cancel()
             if start_watcher:
                 watcher.stop()
 
@@ -265,6 +285,7 @@ def create_app(
     app.state.config = cfg
     app.state.storage = storage
     app.state.watcher = watcher
+    app.state.fetcher = fetcher
     app.state.broadcaster = broadcaster
 
     @app.middleware("http")
@@ -356,7 +377,20 @@ def create_app(
         summary["watcher_running"] = watcher.is_running
         summary["watch_dir"] = str(cfg.watch_dir)
         summary["anonymize"] = cfg.anonymize
+        summary["fetcher"] = fetcher.get_status()
         return JSONResponse(summary)
+
+    @app.post("/api/fetch-web")
+    async def api_fetch_web(_auth: None = Depends(verify_admin_access)) -> JSONResponse:
+        """Manuální spuštění stažení jednodenního rozvrhu z webu Bakalářů pro administrátora."""
+        success = await fetcher.fetch_once()
+        return JSONResponse(
+            {
+                "ok": success,
+                "status": "success" if success else "failed",
+                "fetcher": fetcher.get_status(),
+            }
+        )
 
     @app.get("/admin/status")
     async def admin_status_page(

@@ -54,6 +54,10 @@ CREATE TABLE IF NOT EXISTS schedule_days (
     exported_at_display TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL,
     source_import_id INTEGER,
+    data_source TEXT NOT NULL DEFAULT 'file',
+    source_label TEXT NOT NULL DEFAULT 'Soubor (Bakaláři export)',
+    fetched_at TEXT NOT NULL DEFAULT '',
+    source_hash TEXT NOT NULL DEFAULT '',
     FOREIGN KEY (source_import_id) REFERENCES import_runs(id) ON DELETE SET NULL
 );
 
@@ -160,6 +164,17 @@ class Storage:
     def _init_db(self) -> None:
         with self._connect() as conn:
             conn.executescript(SCHEMA_SQL)
+            cols = {row["name"] for row in conn.execute("PRAGMA table_info(schedule_days)").fetchall()}
+            if "data_source" not in cols:
+                conn.execute("ALTER TABLE schedule_days ADD COLUMN data_source TEXT NOT NULL DEFAULT 'file'")
+            if "source_label" not in cols:
+                conn.execute(
+                    "ALTER TABLE schedule_days ADD COLUMN source_label TEXT NOT NULL DEFAULT 'Soubor (Bakaláři export)'"
+                )
+            if "fetched_at" not in cols:
+                conn.execute("ALTER TABLE schedule_days ADD COLUMN fetched_at TEXT NOT NULL DEFAULT ''")
+            if "source_hash" not in cols:
+                conn.execute("ALTER TABLE schedule_days ADD COLUMN source_hash TEXT NOT NULL DEFAULT ''")
 
     def get_teacher_directory(self) -> dict[str, str]:
         """Vrátí uložený slovník zkratek učitelů (code -> 'Příjmení Jméno')."""
@@ -237,8 +252,9 @@ class Storage:
                     """
                     INSERT INTO schedule_days (
                         date, day_name, week_label, school_name,
-                        exported_at, exported_at_display, updated_at, source_import_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        exported_at, exported_at_display, updated_at, source_import_id,
+                        data_source, source_label, fetched_at, source_hash
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'file', 'Soubor (Bakaláři export)', '', ?)
                     """,
                     (
                         day.date,
@@ -249,6 +265,7 @@ class Storage:
                         day.exported_at_display,
                         now_iso,
                         import_id,
+                        file_hash,
                     ),
                 )
 
@@ -375,6 +392,151 @@ class Storage:
         self.cleanup_old_days(retention_days=retention_days, reference_date=reference_date)
         return import_id
 
+    def save_web_day(self, day: ScheduleDay, source_hash: str) -> bool:
+        """Uloží jediný den z webu (hybridní slučování).
+
+        Pokud stávající den pochází ze souboru a je novější než web, soubor má přednost.
+        V opačném případě aktualizuje výhradně tento 1 den a ostatní dny týdne ponechává nedotčené.
+        """
+        now_iso = datetime.now(PRAGUE_TZ).isoformat(timespec="seconds")
+        with self._connect() as conn:
+            cur = conn.cursor()
+            existing = cur.execute(
+                "SELECT data_source, exported_at, fetched_at FROM schedule_days WHERE date = ?",
+                (day.date,),
+            ).fetchone()
+
+            if existing:
+                existing_source = str(existing["data_source"] or "file")
+                existing_exported = str(existing["exported_at"] or "")
+                web_timestamp = day.fetched_at or day.exported_at or now_iso
+                if (
+                    existing_source == "file"
+                    and existing_exported
+                    and web_timestamp
+                    and existing_exported > web_timestamp
+                ):
+                    return False
+
+            # Smaže výhradně tento 1 daný den
+            cur.execute("DELETE FROM schedule_days WHERE date = ?", (day.date,))
+
+            cur.execute(
+                """
+                INSERT INTO schedule_days (
+                    date, day_name, week_label, school_name,
+                    exported_at, exported_at_display, updated_at, source_import_id,
+                    data_source, source_label, fetched_at, source_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'web', 'Web (klasifikace.skolakrizik.cz)', ?, ?)
+                """,
+                (
+                    day.date,
+                    day.day_name,
+                    day.week_label,
+                    day.school_name,
+                    day.exported_at or now_iso,
+                    day.exported_at_display,
+                    now_iso,
+                    day.fetched_at or now_iso,
+                    source_hash,
+                ),
+            )
+
+            for ac in day.absent_classes:
+                cur.execute(
+                    "INSERT INTO absent_classes (date, class_name, hours_json) VALUES (?, ?, ?)",
+                    (day.date, ac.class_name, json.dumps(ac.hours, ensure_ascii=False)),
+                )
+
+            for at in day.absent_teachers:
+                hours_serialized = {str(h): cell.model_dump() for h, cell in at.hours.items()}
+                cur.execute(
+                    """
+                    INSERT INTO absent_teachers (
+                        date, teacher_full_name, teacher_normalized_name, teacher_code, hours_json
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        day.date,
+                        at.teacher_full_name,
+                        at.teacher_normalized_name,
+                        at.teacher_code,
+                        json.dumps(hours_serialized, ensure_ascii=False),
+                    ),
+                )
+
+            for cr in day.closed_rooms:
+                cur.execute(
+                    "INSERT INTO closed_rooms (date, room_name, hours_json) VALUES (?, ?, ?)",
+                    (day.date, cr.room_name, json.dumps(cr.hours, ensure_ascii=False)),
+                )
+
+            for sup in day.supervisions:
+                cur.execute(
+                    """
+                    INSERT INTO class_supervisions (
+                        date, class_name, hour_from, hour_to, teachers_text, raw_text
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        day.date,
+                        sup.class_name,
+                        sup.hour_from,
+                        sup.hour_to,
+                        sup.teachers_text,
+                        sup.raw_text,
+                    ),
+                )
+
+            inserted_changes: list[tuple[int, ClassChange]] = []
+            for ch in day.class_changes:
+                cur.execute(
+                    """
+                    INSERT INTO class_changes (
+                        date, class_name, hour_from, hour_to, subject, group_name,
+                        room, room_changed, change_type, change_type_raw,
+                        sub_teacher, sub_teacher_changed, orig_teacher_code,
+                        orig_teacher_resolved, note, paired_hour, raw_row_text
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        day.date,
+                        ch.class_name,
+                        ch.hour_from,
+                        ch.hour_to,
+                        ch.subject,
+                        ch.group_name,
+                        ch.room,
+                        1 if ch.room_changed else 0,
+                        ch.change_type.value,
+                        ch.change_type_raw,
+                        ch.sub_teacher,
+                        1 if ch.sub_teacher_changed else 0,
+                        ch.orig_teacher_code,
+                        ch.orig_teacher_resolved,
+                        ch.note,
+                        ch.paired_hour,
+                        ch.raw_row_text,
+                    ),
+                )
+                inserted_changes.append((int(cur.lastrowid or 0), ch))
+
+            for db_id, ch in inserted_changes:
+                if ch.paired_hour is not None:
+                    for other_id, other_ch in inserted_changes:
+                        if (
+                            other_id != db_id
+                            and other_ch.class_name == ch.class_name
+                            and other_ch.hour_from == ch.paired_hour
+                            and other_ch.paired_hour == ch.hour_from
+                        ):
+                            cur.execute(
+                                "UPDATE class_changes SET paired_change_id = ? WHERE id = ?",
+                                (other_id, db_id),
+                            )
+            return True
+
+
     def record_failed_import(
         self,
         file_name: str,
@@ -415,7 +577,8 @@ class Storage:
         with self._connect() as conn:
             rows = conn.execute(
                 """
-                SELECT date, day_name, week_label, exported_at, exported_at_display, updated_at
+                SELECT date, day_name, week_label, exported_at, exported_at_display, updated_at,
+                       data_source, source_label, fetched_at
                 FROM schedule_days
                 ORDER BY date ASC
                 """
@@ -540,6 +703,9 @@ class Storage:
                 school_name=str(day_row["school_name"]),
                 exported_at=str(day_row["exported_at"]),
                 exported_at_display=str(day_row["exported_at_display"]),
+                data_source=str(day_row["data_source"] or "file"),
+                source_label=str(day_row["source_label"] or "Soubor (Bakaláři export)"),
+                fetched_at=str(day_row["fetched_at"] or ""),
                 absent_classes=absent_classes,
                 absent_teachers=absent_teachers,
                 closed_rooms=closed_rooms,

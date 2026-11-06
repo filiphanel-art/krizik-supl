@@ -326,6 +326,11 @@ def build_app_documentation_html() -> str:
       <td>Webhook pro příjem exportu <code>suplprehtrid.html</code> z Windows agenta přes HTTP POST.</td>
     </tr>
     <tr>
+      <td><code>POST /api/fetch-web</code></td>
+      <td>Admin / CIDR</td>
+      <td>Okamžité vynucení stažení aktuálního stavu z webu <code>next/zmeny.aspx</code>.</td>
+    </tr>
+    <tr>
       <td><code>GET /admin/status</code></td>
       <td>Admin / CIDR</td>
       <td>Diagnostický přehled stavu watcher procesu, historie importů a nerozpoznaných položek.</td>

@@ -136,6 +136,9 @@ class ScheduleDay(BaseModel):
     school_name: str = ""
     exported_at: str = ""  # ISO 8601
     exported_at_display: str = ""
+    data_source: str = "file"  # "file" | "web"
+    source_label: str = "Soubor (Bakaláři export)"
+    fetched_at: str = ""  # ISO 8601
     absent_classes: list[AbsentClass] = Field(default_factory=list)
     absent_teachers: list[AbsentTeacher] = Field(default_factory=list)
     closed_rooms: list[ClosedRoom] = Field(default_factory=list)
