@@ -395,8 +395,8 @@ def test_strip_04_integration_dom_and_api_strip_blocks(tmp_path: Path) -> None:
 
         r_index = client.get("/")
         assert r_index.status_code == 200
-        assert 'href="styles.css?v=10"' in r_index.text
-        assert 'src="app.js?v=10"' in r_index.text
+        assert 'href="styles.css?v=11"' in r_index.text
+        assert 'src="app.js?v=11"' in r_index.text
 
 
 def test_strip_05_anonymization_and_security_pills(tmp_path: Path) -> None:

@@ -448,7 +448,7 @@ def build_user_manual_html() -> str:
 </div>
 
 <ul>
-  <li><span class="badge badge-red">Červené štítky</span> – <strong>Nepřítomní učitelé:</strong> Vypisují pedagogy, kteří v daném dni chybí, společně s rozsahem jejich absence (např. <em>Kodad Miloš (1.–7. hod)</em>).</li>
+  <li><span class="badge badge-blue">Modré štítky</span> – <strong>Nepřítomní učitelé:</strong> Vypisují pedagogy, kteří v daném dni chybí, společně s rozsahem jejich absence (např. <em>Kodad Miloš (1.–7. hod)</em>).</li>
   <li><span class="badge badge-blue">Modré štítky</span> – <strong>Suplující učitelé:</strong> Vypisují pedagogy, kteří v daném dni přebírají výuku navíc nebo suplují, včetně konkrétních hodin (např. <em>Valtr Pavel (1., 4. hod)</em>).</li>
 </ul>
 
