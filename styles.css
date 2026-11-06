@@ -395,9 +395,9 @@ body {
 }
 
 .pill-absent {
-  background-color: var(--odpada-bg);
-  color: var(--odpada-fg);
-  border-color: var(--odpada-border);
+  background-color: var(--supl-bg);
+  color: var(--supl-fg);
+  border-color: var(--supl-border);
 }
 
 .pill-sub {
