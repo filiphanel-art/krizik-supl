@@ -57,6 +57,8 @@
     return svg;
   }
 
+  const hasDom = typeof document !== "undefined" && typeof window !== "undefined";
+
   const state = {
     dates: [],
     selectedDate: "",
@@ -64,33 +66,47 @@
     status: null,
     selectedEntity: "",
     searchQuery: "",
-    isStaticExport: Boolean(window.__STATIC_EXPORT__),
+    isStaticExport: typeof window !== "undefined" ? Boolean(window.__STATIC_EXPORT__) : false,
     isOffline: false
   };
 
-  const els = {
-    mainContainer: document.getElementById("main-container"),
-    schoolName: document.getElementById("school-name"),
-    exportedAtLabel: document.getElementById("exported-at-label"),
-    updatedAtLabel: document.getElementById("updated-at-label"),
-    bannerParseError: document.getElementById("banner-parse-error"),
-    bannerParseErrorText: document.getElementById("banner-parse-error-text"),
-    bannerStale: document.getElementById("banner-stale"),
-    bannerStaleText: document.getElementById("banner-stale-text"),
-    bannerOffline: document.getElementById("banner-offline"),
-    dateTabs: document.getElementById("date-tabs"),
-    entitySelect: document.getElementById("entity-select"),
-    searchInput: document.getElementById("search-input"),
-    btnClearFilter: document.getElementById("btn-clear-filter"),
-    dayHeading: document.getElementById("day-heading"),
-    gridView: document.getElementById("grid-view")
-  };
+  const els = hasDom
+    ? {
+        mainContainer: document.getElementById("main-container"),
+        schoolName: document.getElementById("school-name"),
+        exportedAtLabel: document.getElementById("exported-at-label"),
+        updatedAtLabel: document.getElementById("updated-at-label"),
+        bannerParseError: document.getElementById("banner-parse-error"),
+        bannerParseErrorText: document.getElementById("banner-parse-error-text"),
+        bannerStale: document.getElementById("banner-stale"),
+        bannerStaleText: document.getElementById("banner-stale-text"),
+        bannerOffline: document.getElementById("banner-offline"),
+        dateTabs: document.getElementById("date-tabs"),
+        entitySelect: document.getElementById("entity-select"),
+        searchInput: document.getElementById("search-input"),
+        btnClearFilter: document.getElementById("btn-clear-filter"),
+        dayHeading: document.getElementById("day-heading"),
+        gridView: document.getElementById("grid-view")
+      }
+    : {};
 
   function el(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text !== undefined && text !== null) node.textContent = String(text);
-    return node;
+    if (typeof document !== "undefined") {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined && text !== null) node.textContent = String(text);
+      return node;
+    }
+    return {
+      tagName: tag.toUpperCase(),
+      className: className || "",
+      textContent: text !== undefined && text !== null ? String(text) : "",
+      children: [],
+      appendChild(child) {
+        this.children.push(child);
+        return child;
+      }
+    };
   }
 
   function formatHourRange(hFrom, hTo) {
@@ -287,12 +303,124 @@
     return texts.some((t) => t && String(t).toLowerCase().includes(q));
   }
 
-  function hoursRangeText(hoursObj) {
-    const hs = Object.keys(hoursObj || {})
-      .map(Number)
-      .sort((a, b) => a - b);
+  function formatHoursList(hours) {
+    if (!Array.isArray(hours) || hours.length === 0) return "";
+    const hs = Array.from(new Set(hours.map(Number).filter((n) => !isNaN(n)))).sort(
+      (a, b) => a - b
+    );
     if (hs.length === 0) return "";
-    return hs[0] === hs[hs.length - 1] ? hs[0] + "." : hs[0] + ".–" + hs[hs.length - 1] + ".";
+
+    const ranges = [];
+    let start = hs[0];
+    let prev = hs[0];
+    for (let i = 1; i < hs.length; i++) {
+      const curr = hs[i];
+      if (curr === prev + 1) {
+        prev = curr;
+      } else {
+        ranges.push({ start, end: prev });
+        start = curr;
+        prev = curr;
+      }
+    }
+    ranges.push({ start, end: prev });
+
+    const parts = ranges.map((r) => {
+      if (r.start === r.end) {
+        return r.start + ".";
+      }
+      return r.start + ".–" + r.end + ".";
+    });
+    return parts.join(", ") + " hod";
+  }
+
+  function extractSubstitutingTeachers(changes) {
+    if (!Array.isArray(changes)) return [];
+    const teacherHoursMap = new Map();
+    changes.forEach((ch) => {
+      if (!ch || !ch.sub_teacher) return;
+      const name = String(ch.sub_teacher).trim();
+      if (!name) return;
+      const isActive =
+        ch.change_type === "SUPLOVANI" ||
+        ch.change_type === "SPOJENO" ||
+        (Boolean(ch.sub_teacher_changed) && ch.change_type !== "ZMENA_UCEBNY");
+      if (!isActive) return;
+
+      if (!teacherHoursMap.has(name)) {
+        teacherHoursMap.set(name, new Set());
+      }
+      const set = teacherHoursMap.get(name);
+      const from = typeof ch.hour_from === "number" ? ch.hour_from : 1;
+      const to = typeof ch.hour_to === "number" ? ch.hour_to : from;
+      for (let h = from; h <= to; h++) {
+        set.add(h);
+      }
+    });
+
+    const sortedTeachers = Array.from(teacherHoursMap.keys()).sort((a, b) =>
+      a.localeCompare(b, "cs")
+    );
+
+    return sortedTeachers.map((teacher) => {
+      const hours = Array.from(teacherHoursMap.get(teacher));
+      return {
+        teacher: teacher,
+        hoursText: formatHoursList(hours)
+      };
+    });
+  }
+
+  function createTeacherPill(name, hoursText, variant) {
+    const pill = el("div", "teacher-pill pill-" + variant);
+    pill.appendChild(el("span", "pill-name", name));
+    if (hoursText) {
+      pill.appendChild(el("span", "pill-hours", hoursText));
+    }
+    return pill;
+  }
+
+  function renderGridStrip(day) {
+    const strip = el("div", "grid-strip");
+
+    // Blok 1: Nepřítomní učitelé
+    const tBox = el("div", "strip-box strip-teachers");
+    tBox.appendChild(el("div", "strip-header", "Nepřítomní učitelé:"));
+    const tPills = el("div", "strip-pills");
+    const absT = (day && day.absent_teachers ? day.absent_teachers : []).slice().sort((a, b) =>
+      (a.teacher_full_name || "").localeCompare(b.teacher_full_name || "", "cs")
+    );
+    if (absT.length === 0) {
+      tPills.appendChild(el("span", "strip-empty", "žádní"));
+    } else {
+      absT.forEach((a) => {
+        const name =
+          a.teacher_code && a.teacher_full_name && a.teacher_full_name.indexOf(a.teacher_code) < 0
+            ? a.teacher_full_name + " (" + a.teacher_code + ")"
+            : (a.teacher_full_name || a.teacher_code || "");
+        const hours = Object.keys(a.hours || {}).map(Number);
+        tPills.appendChild(createTeacherPill(name, formatHoursList(hours), "absent"));
+      });
+    }
+    tBox.appendChild(tPills);
+    strip.appendChild(tBox);
+
+    // Blok 2: Suplující učitelé (nahrazuje strip-rooms a strip-sup)
+    const sBox = el("div", "strip-box strip-sub-teachers");
+    sBox.appendChild(el("div", "strip-header", "Suplující učitelé:"));
+    const sPills = el("div", "strip-pills");
+    const subTeachers = extractSubstitutingTeachers((day && day.class_changes) || []);
+    if (subTeachers.length === 0) {
+      sPills.appendChild(el("span", "strip-empty", "žádní"));
+    } else {
+      subTeachers.forEach((st) => {
+        sPills.appendChild(createTeacherPill(st.teacher, st.hoursText, "sub"));
+      });
+    }
+    sBox.appendChild(sPills);
+    strip.appendChild(sBox);
+
+    return strip;
   }
 
   function gridCellForChange(ch) {
@@ -341,56 +469,7 @@
     const root = els.gridView;
     root.replaceChildren();
 
-    const strip = el("div", "grid-strip");
-    const absT = day.absent_teachers || [];
-    const tBox = el("div", "strip-box strip-teachers");
-    tBox.appendChild(el("strong", "", "Nepřítomní učitelé: "));
-    tBox.appendChild(
-      el(
-        "span",
-        "",
-        absT.length
-          ? absT
-              .map(
-                (a) =>
-                  (a.teacher_code && a.teacher_full_name.indexOf(a.teacher_code) < 0
-                    ? a.teacher_full_name + " (" + a.teacher_code + ")"
-                    : a.teacher_full_name) +
-                  " " +
-                  hoursRangeText(a.hours)
-              )
-              .join("  |  ")
-          : "nejsou"
-      )
-    );
-    strip.appendChild(tBox);
-
-    const rooms = day.closed_rooms || [];
-    const rBox = el("div", "strip-box strip-rooms");
-    rBox.appendChild(el("strong", "", "Učebny mimo provoz: "));
-    rBox.appendChild(
-      el(
-        "span",
-        "",
-        rooms.length ? rooms.map((r) => r.room_name + " (" + hoursRangeText(r.hours) + ")").join(", ") : "nejsou"
-      )
-    );
-    strip.appendChild(rBox);
-
-    if (day.supervisions && day.supervisions.length > 0) {
-      const sBox = el("div", "strip-box strip-sup");
-      sBox.appendChild(el("strong", "", "Dohledy: "));
-      sBox.appendChild(
-        el(
-          "span",
-          "",
-          day.supervisions
-            .map((s) => s.class_name + " (" + formatHourRange(s.hour_from, s.hour_to) + ": " + s.teachers_text + ")")
-            .join(" | ")
-        )
-      );
-      strip.appendChild(sBox);
-    }
+    const strip = renderGridStrip(day);
     root.appendChild(strip);
 
     const allChanges = (day.class_changes || []).filter(changeMatchesSearch);
@@ -493,8 +572,8 @@
     speed: 40,
     pauseMs: 2500
   };
-  const btnFs = document.getElementById("btn-fullscreen");
-  const btnKioskExit = document.getElementById("btn-kiosk-exit");
+  const btnFs = hasDom ? document.getElementById("btn-fullscreen") : null;
+  const btnKioskExit = hasDom ? document.getElementById("btn-kiosk-exit") : null;
 
   function getScrollTop() {
     return (
@@ -537,28 +616,6 @@
     renderGrid(day);
     if (kiosk.active) setScrollTop(keepScroll);
   }
-
-  window.addEventListener("resize", () => {
-    renderAll();
-  });
-
-  els.entitySelect.addEventListener("change", (e) => {
-    state.selectedEntity = e.target.value;
-    renderAll();
-  });
-
-  els.searchInput.addEventListener("input", (e) => {
-    state.searchQuery = e.target.value.trim();
-    renderAll();
-  });
-
-  els.btnClearFilter.addEventListener("click", () => {
-    state.selectedEntity = "";
-    state.searchQuery = "";
-    els.entitySelect.value = "";
-    els.searchInput.value = "";
-    renderAll();
-  });
 
   function kioskStep(ts) {
     if (!kiosk.active) return;
@@ -630,30 +687,6 @@
     renderAll();
   }
 
-  btnFs.addEventListener("click", () => (kiosk.active ? stopKiosk() : startKiosk()));
-  btnKioskExit.addEventListener("click", stopKiosk);
-  document.addEventListener("fullscreenchange", () => {
-    if (!document.fullscreenElement && kiosk.active) stopKiosk();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") stopKiosk();
-  });
-  ["wheel", "touchstart"].forEach((evt) =>
-    window.addEventListener(
-      evt,
-      () => {
-        if (kiosk.active) kiosk.pauseUntil = performance.now() + 6000;
-      },
-      { passive: true }
-    )
-  );
-
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
-    });
-  }
-
   function setupLiveUpdates() {
     if (state.isStaticExport) return;
 
@@ -670,6 +703,76 @@
     }, 25000);
   }
 
-  loadData("", false);
-  setupLiveUpdates();
+  if (hasDom) {
+    window.addEventListener("resize", () => {
+      renderAll();
+    });
+
+    if (els.entitySelect) {
+      els.entitySelect.addEventListener("change", (e) => {
+        state.selectedEntity = e.target.value;
+        renderAll();
+      });
+    }
+
+    if (els.searchInput) {
+      els.searchInput.addEventListener("input", (e) => {
+        state.searchQuery = e.target.value.trim();
+        renderAll();
+      });
+    }
+
+    if (els.btnClearFilter) {
+      els.btnClearFilter.addEventListener("click", () => {
+        state.selectedEntity = "";
+        state.searchQuery = "";
+        els.entitySelect.value = "";
+        els.searchInput.value = "";
+        renderAll();
+      });
+    }
+
+    if (btnFs) btnFs.addEventListener("click", () => (kiosk.active ? stopKiosk() : startKiosk()));
+    if (btnKioskExit) btnKioskExit.addEventListener("click", stopKiosk);
+    document.addEventListener("fullscreenchange", () => {
+      if (!document.fullscreenElement && kiosk.active) stopKiosk();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") stopKiosk();
+    });
+    ["wheel", "touchstart"].forEach((evt) =>
+      window.addEventListener(
+        evt,
+        () => {
+          if (kiosk.active) kiosk.pauseUntil = performance.now() + 6000;
+        },
+        { passive: true }
+      )
+    );
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      });
+    }
+
+    loadData("", false);
+    setupLiveUpdates();
+  }
+
+  if (typeof window !== "undefined") {
+    window.formatHoursList = formatHoursList;
+    window.extractSubstitutingTeachers = extractSubstitutingTeachers;
+    window.createTeacherPill = createTeacherPill;
+    window.renderGridStrip = renderGridStrip;
+  }
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+      formatHoursList,
+      extractSubstitutingTeachers,
+      createTeacherPill,
+      renderGridStrip
+    };
+  }
 })();
