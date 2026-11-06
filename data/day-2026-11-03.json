@@ -5,6 +5,9 @@
   "school_name": "Vyšší odborná škola a Střední průmyslová škola elektrotechnická Františka Křižíka",
   "exported_at": "2026-11-05T08:26:00+01:00",
   "exported_at_display": "5. 11. 2026 08:26",
+  "data_source": "file",
+  "source_label": "Soubor (Bakaláři export)",
+  "fetched_at": "",
   "absent_classes": [
     {
       "class_name": "V2",
@@ -114,7 +117,7 @@
   ],
   "class_changes": [
     {
-      "id": 728,
+      "id": 832,
       "date": "2026-11-03",
       "class_name": "2B",
       "hour_from": 4,
@@ -135,7 +138,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 729,
+      "id": 833,
       "date": "2026-11-03",
       "class_name": "3A",
       "hour_from": 3,
@@ -156,7 +159,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 730,
+      "id": 834,
       "date": "2026-11-03",
       "class_name": "3A",
       "hour_from": 6,
@@ -177,7 +180,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 731,
+      "id": 835,
       "date": "2026-11-03",
       "class_name": "3A",
       "hour_from": 7,
@@ -188,7 +191,7 @@
       "room_changed": true,
       "change_type": "ZMENA_UCEBNY",
       "change_type_raw": "změna",
-      "sub_teacher": "P. J.",
+      "sub_teacher": "Pk",
       "sub_teacher_changed": false,
       "orig_teacher_code": "",
       "orig_teacher_resolved": "",
@@ -198,7 +201,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 732,
+      "id": 836,
       "date": "2026-11-03",
       "class_name": "3B",
       "hour_from": 3,
@@ -219,7 +222,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 733,
+      "id": 837,
       "date": "2026-11-03",
       "class_name": "3D",
       "hour_from": 1,
@@ -240,7 +243,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 734,
+      "id": 838,
       "date": "2026-11-03",
       "class_name": "3D",
       "hour_from": 1,
@@ -261,7 +264,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 735,
+      "id": 839,
       "date": "2026-11-03",
       "class_name": "3D",
       "hour_from": 2,
@@ -282,7 +285,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 736,
+      "id": 840,
       "date": "2026-11-03",
       "class_name": "3D",
       "hour_from": 2,
@@ -303,7 +306,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 737,
+      "id": 841,
       "date": "2026-11-03",
       "class_name": "4B",
       "hour_from": 1,
@@ -324,7 +327,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 738,
+      "id": 842,
       "date": "2026-11-03",
       "class_name": "4B",
       "hour_from": 2,
@@ -345,7 +348,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 739,
+      "id": 843,
       "date": "2026-11-03",
       "class_name": "4C",
       "hour_from": 5,
@@ -366,7 +369,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 740,
+      "id": 844,
       "date": "2026-11-03",
       "class_name": "V2",
       "hour_from": 1,
@@ -455,9 +458,9 @@
       "note": ""
     },
     {
-      "teacher_key": "P. J.",
-      "teacher_display": "P. J.",
-      "teacher_code": "P. J.",
+      "teacher_key": "Pk",
+      "teacher_display": "Pk",
+      "teacher_code": "Pk",
       "role": "změna učebny",
       "hour_from": 7,
       "hour_to": 7,

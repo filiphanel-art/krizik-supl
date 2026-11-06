@@ -1,10 +1,13 @@
 {
   "date": "2026-11-06",
   "day_name": "Pátek",
-  "week_label": "2. týden",
+  "week_label": "",
   "school_name": "Vyšší odborná škola a Střední průmyslová škola elektrotechnická Františka Křižíka",
-  "exported_at": "2026-11-05T08:26:00+01:00",
-  "exported_at_display": "5. 11. 2026 08:26",
+  "exported_at": "2026-11-06T20:39:04+01:00",
+  "exported_at_display": "06. 11. 2026",
+  "data_source": "file",
+  "source_label": "Soubor (Bakaláři export)",
+  "fetched_at": "",
   "absent_classes": [
     {
       "class_name": "V2",
@@ -20,6 +23,83 @@
     }
   ],
   "absent_teachers": [
+    {
+      "teacher_full_name": "Hf",
+      "teacher_normalized_name": "Hf",
+      "teacher_code": "Hf",
+      "hours": {
+        "1": {
+          "hour": 1,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "2": {
+          "hour": 2,
+          "raw": "Ba",
+          "status": "ABSENT_SUBSTITUTED",
+          "sub_teacher_code": "Ba",
+          "sub_teacher_resolved": ""
+        },
+        "3": {
+          "hour": 3,
+          "raw": "Le",
+          "status": "ABSENT_SUBSTITUTED",
+          "sub_teacher_code": "Le",
+          "sub_teacher_resolved": ""
+        },
+        "4": {
+          "hour": 4,
+          "raw": "Pl",
+          "status": "ABSENT_SUBSTITUTED",
+          "sub_teacher_code": "Pl",
+          "sub_teacher_resolved": ""
+        },
+        "5": {
+          "hour": 5,
+          "raw": "Vl",
+          "status": "ABSENT_SUBSTITUTED",
+          "sub_teacher_code": "Vl",
+          "sub_teacher_resolved": ""
+        },
+        "6": {
+          "hour": 6,
+          "raw": "Nz",
+          "status": "ABSENT_SUBSTITUTED",
+          "sub_teacher_code": "Nz",
+          "sub_teacher_resolved": ""
+        },
+        "7": {
+          "hour": 7,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "8": {
+          "hour": 8,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "9": {
+          "hour": 9,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "10": {
+          "hour": 10,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        }
+      }
+    },
     {
       "teacher_full_name": "Ko",
       "teacher_normalized_name": "Ko",
@@ -71,6 +151,27 @@
           "hour": 7,
           "raw": "-",
           "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "8": {
+          "hour": 8,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "9": {
+          "hour": 9,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "10": {
+          "hour": 10,
+          "raw": "",
+          "status": "PRESENT",
           "sub_teacher_code": "",
           "sub_teacher_resolved": ""
         }
@@ -129,6 +230,104 @@
           "status": "ABSENT_FREE",
           "sub_teacher_code": "",
           "sub_teacher_resolved": ""
+        },
+        "8": {
+          "hour": 8,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "9": {
+          "hour": 9,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "10": {
+          "hour": 10,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        }
+      }
+    },
+    {
+      "teacher_full_name": "Sl",
+      "teacher_normalized_name": "Sl",
+      "teacher_code": "Sl",
+      "hours": {
+        "1": {
+          "hour": 1,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "2": {
+          "hour": 2,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "3": {
+          "hour": 3,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "4": {
+          "hour": 4,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "5": {
+          "hour": 5,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "6": {
+          "hour": 6,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "7": {
+          "hour": 7,
+          "raw": "..",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "8": {
+          "hour": 8,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "9": {
+          "hour": 9,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "10": {
+          "hour": 10,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
         }
       }
     },
@@ -167,8 +366,8 @@
         },
         "5": {
           "hour": 5,
-          "raw": "-",
-          "status": "ABSENT_FREE",
+          "raw": "....",
+          "status": "ABSENT_CANCELLED",
           "sub_teacher_code": "",
           "sub_teacher_resolved": ""
         },
@@ -183,6 +382,27 @@
           "hour": 7,
           "raw": "-",
           "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "8": {
+          "hour": 8,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "9": {
+          "hour": 9,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "10": {
+          "hour": 10,
+          "raw": "",
+          "status": "PRESENT",
           "sub_teacher_code": "",
           "sub_teacher_resolved": ""
         }
@@ -205,7 +425,7 @@
   ],
   "class_changes": [
     {
-      "id": 808,
+      "id": 928,
       "date": "2026-11-06",
       "class_name": "1A",
       "hour_from": 1,
@@ -220,13 +440,13 @@
       "sub_teacher_changed": false,
       "orig_teacher_code": "So",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 809,
+      "id": 929,
       "date": "2026-11-06",
       "class_name": "1A",
       "hour_from": 2,
@@ -241,13 +461,13 @@
       "sub_teacher_changed": true,
       "orig_teacher_code": "So",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 810,
+      "id": 930,
       "date": "2026-11-06",
       "class_name": "1B",
       "hour_from": 1,
@@ -262,13 +482,13 @@
       "sub_teacher_changed": true,
       "orig_teacher_code": "Mt",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 811,
+      "id": 931,
       "date": "2026-11-06",
       "class_name": "1B",
       "hour_from": 2,
@@ -283,13 +503,13 @@
       "sub_teacher_changed": true,
       "orig_teacher_code": "Mt",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 812,
+      "id": 932,
       "date": "2026-11-06",
       "class_name": "1B",
       "hour_from": 4,
@@ -297,20 +517,20 @@
       "subject": "Ch",
       "group_name": "",
       "room": "P6",
-      "room_changed": false,
+      "room_changed": true,
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "sub_teacher": "Rt",
       "sub_teacher_changed": true,
       "orig_teacher_code": "Mt",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 813,
+      "id": 933,
       "date": "2026-11-06",
       "class_name": "1D",
       "hour_from": 3,
@@ -318,20 +538,20 @@
       "subject": "Ma",
       "group_name": "",
       "room": "P5",
-      "room_changed": false,
+      "room_changed": true,
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "sub_teacher": "Šb",
       "sub_teacher_changed": true,
       "orig_teacher_code": "Mt",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 814,
+      "id": 934,
       "date": "2026-11-06",
       "class_name": "2B",
       "hour_from": 5,
@@ -339,20 +559,41 @@
       "subject": "Če",
       "group_name": "",
       "room": "P2",
-      "room_changed": false,
+      "room_changed": true,
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "sub_teacher": "Pa",
       "sub_teacher_changed": true,
       "orig_teacher_code": "Mt",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 815,
+      "id": 935,
+      "date": "2026-11-06",
+      "class_name": "2C",
+      "hour_from": 7,
+      "hour_to": 7,
+      "subject": "Gm",
+      "group_name": "2/2",
+      "room": "",
+      "room_changed": false,
+      "change_type": "ODPADA",
+      "change_type_raw": "odpadá",
+      "sub_teacher": "",
+      "sub_teacher_changed": false,
+      "orig_teacher_code": "Sl",
+      "orig_teacher_resolved": "",
+      "note": "[poznámka skryta]",
+      "paired_hour": null,
+      "paired_change_id": null,
+      "raw_row_text": ""
+    },
+    {
+      "id": 936,
       "date": "2026-11-06",
       "class_name": "3A",
       "hour_from": 2,
@@ -363,17 +604,17 @@
       "room_changed": true,
       "change_type": "ZMENA_UCEBNY",
       "change_type_raw": "změna",
-      "sub_teacher": "P. J.",
-      "sub_teacher_changed": false,
+      "sub_teacher": "Pk",
+      "sub_teacher_changed": true,
       "orig_teacher_code": "",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 816,
+      "id": 937,
       "date": "2026-11-06",
       "class_name": "3A",
       "hour_from": 3,
@@ -384,17 +625,17 @@
       "room_changed": true,
       "change_type": "ZMENA_UCEBNY",
       "change_type_raw": "změna",
-      "sub_teacher": "P. R.",
-      "sub_teacher_changed": false,
+      "sub_teacher": "Pl",
+      "sub_teacher_changed": true,
       "orig_teacher_code": "",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 817,
+      "id": 938,
       "date": "2026-11-06",
       "class_name": "3A",
       "hour_from": 4,
@@ -406,16 +647,16 @@
       "change_type": "ZMENA_UCEBNY",
       "change_type_raw": "změna",
       "sub_teacher": "Jo",
-      "sub_teacher_changed": false,
+      "sub_teacher_changed": true,
       "orig_teacher_code": "",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 818,
+      "id": 939,
       "date": "2026-11-06",
       "class_name": "3A",
       "hour_from": 5,
@@ -427,16 +668,37 @@
       "change_type": "ZMENA_UCEBNY",
       "change_type_raw": "změna",
       "sub_teacher": "Nz",
-      "sub_teacher_changed": false,
+      "sub_teacher_changed": true,
       "orig_teacher_code": "",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 819,
+      "id": 940,
+      "date": "2026-11-06",
+      "class_name": "3C",
+      "hour_from": 2,
+      "hour_to": 2,
+      "subject": "Lb",
+      "group_name": "",
+      "room": "10",
+      "room_changed": true,
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "sub_teacher": "Ba",
+      "sub_teacher_changed": true,
+      "orig_teacher_code": "Hf",
+      "orig_teacher_resolved": "",
+      "note": "[poznámka skryta]",
+      "paired_hour": null,
+      "paired_change_id": null,
+      "raw_row_text": ""
+    },
+    {
+      "id": 941,
       "date": "2026-11-06",
       "class_name": "3D",
       "hour_from": 4,
@@ -444,20 +706,104 @@
       "subject": "Ma",
       "group_name": "",
       "room": "9",
-      "room_changed": false,
+      "room_changed": true,
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "sub_teacher": "Nz",
       "sub_teacher_changed": true,
       "orig_teacher_code": "So",
       "orig_teacher_resolved": "",
-      "note": "",
+      "note": "[poznámka skryta]",
       "paired_hour": null,
       "paired_change_id": null,
       "raw_row_text": ""
     },
     {
-      "id": 820,
+      "id": 942,
+      "date": "2026-11-06",
+      "class_name": "4D",
+      "hour_from": 3,
+      "hour_to": 3,
+      "subject": "At",
+      "group_name": "",
+      "room": "13",
+      "room_changed": true,
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "sub_teacher": "Le",
+      "sub_teacher_changed": true,
+      "orig_teacher_code": "Hf",
+      "orig_teacher_resolved": "",
+      "note": "[poznámka skryta]",
+      "paired_hour": null,
+      "paired_change_id": null,
+      "raw_row_text": ""
+    },
+    {
+      "id": 943,
+      "date": "2026-11-06",
+      "class_name": "4D",
+      "hour_from": 4,
+      "hour_to": 4,
+      "subject": "Op",
+      "group_name": "",
+      "room": "13",
+      "room_changed": true,
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "sub_teacher": "Pl",
+      "sub_teacher_changed": true,
+      "orig_teacher_code": "Hf",
+      "orig_teacher_resolved": "",
+      "note": "[poznámka skryta]",
+      "paired_hour": null,
+      "paired_change_id": null,
+      "raw_row_text": ""
+    },
+    {
+      "id": 944,
+      "date": "2026-11-06",
+      "class_name": "4D",
+      "hour_from": 5,
+      "hour_to": 5,
+      "subject": "Ek",
+      "group_name": "",
+      "room": "13",
+      "room_changed": true,
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "sub_teacher": "Vl",
+      "sub_teacher_changed": true,
+      "orig_teacher_code": "Hf",
+      "orig_teacher_resolved": "",
+      "note": "[poznámka skryta]",
+      "paired_hour": null,
+      "paired_change_id": null,
+      "raw_row_text": ""
+    },
+    {
+      "id": 945,
+      "date": "2026-11-06",
+      "class_name": "4D",
+      "hour_from": 6,
+      "hour_to": 6,
+      "subject": "Kyc",
+      "group_name": "",
+      "room": "13",
+      "room_changed": true,
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "sub_teacher": "Nz",
+      "sub_teacher_changed": true,
+      "orig_teacher_code": "Hf",
+      "orig_teacher_resolved": "",
+      "note": "[poznámka skryta]",
+      "paired_hour": null,
+      "paired_change_id": null,
+      "raw_row_text": ""
+    },
+    {
+      "id": 946,
       "date": "2026-11-06",
       "class_name": "V2",
       "hour_from": 1,
@@ -482,6 +828,22 @@
   "unrecognized": [],
   "derived_teachers": [
     {
+      "teacher_key": "Ba",
+      "teacher_display": "Ba",
+      "teacher_code": "Ba",
+      "role": "supluje",
+      "hour_from": 2,
+      "hour_to": 2,
+      "class_name": "3C",
+      "subject": "Lb",
+      "group_name": "",
+      "room": "10",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "(Hf)",
+      "note": "[poznámka skryta]"
+    },
+    {
       "teacher_key": "Bj",
       "teacher_display": "Bj",
       "teacher_code": "Bj",
@@ -495,7 +857,87 @@
       "change_type": "SPOJENO",
       "change_type_raw": "spojí",
       "counterpart_teacher": "(So)",
-      "note": ""
+      "note": "[poznámka skryta]"
+    },
+    {
+      "teacher_key": "Hf",
+      "teacher_display": "Hf",
+      "teacher_code": "Hf",
+      "role": "chybí (zastoupen)",
+      "hour_from": 2,
+      "hour_to": 2,
+      "class_name": "3C",
+      "subject": "Lb",
+      "group_name": "",
+      "room": "10",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "Ba",
+      "note": "[poznámka skryta]"
+    },
+    {
+      "teacher_key": "Hf",
+      "teacher_display": "Hf",
+      "teacher_code": "Hf",
+      "role": "chybí (zastoupen)",
+      "hour_from": 3,
+      "hour_to": 3,
+      "class_name": "4D",
+      "subject": "At",
+      "group_name": "",
+      "room": "13",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "Le",
+      "note": "[poznámka skryta]"
+    },
+    {
+      "teacher_key": "Hf",
+      "teacher_display": "Hf",
+      "teacher_code": "Hf",
+      "role": "chybí (zastoupen)",
+      "hour_from": 4,
+      "hour_to": 4,
+      "class_name": "4D",
+      "subject": "Op",
+      "group_name": "",
+      "room": "13",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "Pl",
+      "note": "[poznámka skryta]"
+    },
+    {
+      "teacher_key": "Hf",
+      "teacher_display": "Hf",
+      "teacher_code": "Hf",
+      "role": "chybí (zastoupen)",
+      "hour_from": 5,
+      "hour_to": 5,
+      "class_name": "4D",
+      "subject": "Ek",
+      "group_name": "",
+      "room": "13",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "Vl",
+      "note": "[poznámka skryta]"
+    },
+    {
+      "teacher_key": "Hf",
+      "teacher_display": "Hf",
+      "teacher_code": "Hf",
+      "role": "chybí (zastoupen)",
+      "hour_from": 6,
+      "hour_to": 6,
+      "class_name": "4D",
+      "subject": "Kyc",
+      "group_name": "",
+      "room": "13",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "Nz",
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Jo",
@@ -511,7 +953,23 @@
       "change_type": "ZMENA_UCEBNY",
       "change_type_raw": "změna",
       "counterpart_teacher": "",
-      "note": ""
+      "note": "[poznámka skryta]"
+    },
+    {
+      "teacher_key": "Le",
+      "teacher_display": "Le",
+      "teacher_code": "Le",
+      "role": "supluje",
+      "hour_from": 3,
+      "hour_to": 3,
+      "class_name": "4D",
+      "subject": "At",
+      "group_name": "",
+      "room": "13",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "(Hf)",
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Mt",
@@ -527,7 +985,7 @@
       "change_type": "SPOJENO",
       "change_type_raw": "spojí",
       "counterpart_teacher": "Pa",
-      "note": ""
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Mt",
@@ -543,7 +1001,7 @@
       "change_type": "SPOJENO",
       "change_type_raw": "spojí",
       "counterpart_teacher": "Pa",
-      "note": ""
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Mt",
@@ -559,7 +1017,7 @@
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "counterpart_teacher": "Šb",
-      "note": ""
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Mt",
@@ -575,7 +1033,7 @@
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "counterpart_teacher": "Rt",
-      "note": ""
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Mt",
@@ -591,7 +1049,7 @@
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "counterpart_teacher": "Pa",
-      "note": ""
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Nz",
@@ -607,7 +1065,7 @@
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "counterpart_teacher": "(So)",
-      "note": ""
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Nz",
@@ -623,39 +1081,23 @@
       "change_type": "ZMENA_UCEBNY",
       "change_type_raw": "změna",
       "counterpart_teacher": "",
-      "note": ""
+      "note": "[poznámka skryta]"
     },
     {
-      "teacher_key": "P. J.",
-      "teacher_display": "P. J.",
-      "teacher_code": "P. J.",
-      "role": "změna učebny",
-      "hour_from": 2,
-      "hour_to": 2,
-      "class_name": "3A",
-      "subject": "Es",
+      "teacher_key": "Nz",
+      "teacher_display": "Nz",
+      "teacher_code": "Nz",
+      "role": "supluje",
+      "hour_from": 6,
+      "hour_to": 6,
+      "class_name": "4D",
+      "subject": "Kyc",
       "group_name": "",
-      "room": "4",
-      "change_type": "ZMENA_UCEBNY",
-      "change_type_raw": "změna",
-      "counterpart_teacher": "",
-      "note": ""
-    },
-    {
-      "teacher_key": "P. R.",
-      "teacher_display": "P. R.",
-      "teacher_code": "P. R.",
-      "role": "změna učebny",
-      "hour_from": 3,
-      "hour_to": 3,
-      "class_name": "3A",
-      "subject": "Lb",
-      "group_name": "",
-      "room": "5",
-      "change_type": "ZMENA_UCEBNY",
-      "change_type_raw": "změna",
-      "counterpart_teacher": "",
-      "note": ""
+      "room": "13",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "(Hf)",
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Pa",
@@ -671,7 +1113,7 @@
       "change_type": "SPOJENO",
       "change_type_raw": "spojí",
       "counterpart_teacher": "(Mt)",
-      "note": ""
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Pa",
@@ -687,7 +1129,7 @@
       "change_type": "SPOJENO",
       "change_type_raw": "spojí",
       "counterpart_teacher": "(Mt)",
-      "note": ""
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Pa",
@@ -703,7 +1145,55 @@
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "counterpart_teacher": "(Mt)",
-      "note": ""
+      "note": "[poznámka skryta]"
+    },
+    {
+      "teacher_key": "Pk",
+      "teacher_display": "Pk",
+      "teacher_code": "Pk",
+      "role": "změna učebny",
+      "hour_from": 2,
+      "hour_to": 2,
+      "class_name": "3A",
+      "subject": "Es",
+      "group_name": "",
+      "room": "4",
+      "change_type": "ZMENA_UCEBNY",
+      "change_type_raw": "změna",
+      "counterpart_teacher": "",
+      "note": "[poznámka skryta]"
+    },
+    {
+      "teacher_key": "Pl",
+      "teacher_display": "Pl",
+      "teacher_code": "Pl",
+      "role": "změna učebny",
+      "hour_from": 3,
+      "hour_to": 3,
+      "class_name": "3A",
+      "subject": "Lb",
+      "group_name": "",
+      "room": "5",
+      "change_type": "ZMENA_UCEBNY",
+      "change_type_raw": "změna",
+      "counterpart_teacher": "",
+      "note": "[poznámka skryta]"
+    },
+    {
+      "teacher_key": "Pl",
+      "teacher_display": "Pl",
+      "teacher_code": "Pl",
+      "role": "supluje",
+      "hour_from": 4,
+      "hour_to": 4,
+      "class_name": "4D",
+      "subject": "Op",
+      "group_name": "",
+      "room": "13",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "(Hf)",
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Rt",
@@ -719,7 +1209,23 @@
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "counterpart_teacher": "(Mt)",
-      "note": ""
+      "note": "[poznámka skryta]"
+    },
+    {
+      "teacher_key": "Sl",
+      "teacher_display": "Sl",
+      "teacher_code": "Sl",
+      "role": "chybí (odpadá)",
+      "hour_from": 7,
+      "hour_to": 7,
+      "class_name": "2C",
+      "subject": "Gm",
+      "group_name": "2/2",
+      "room": "",
+      "change_type": "ODPADA",
+      "change_type_raw": "odpadá",
+      "counterpart_teacher": "",
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "So",
@@ -735,7 +1241,7 @@
       "change_type": "ODPADA",
       "change_type_raw": "odpadá",
       "counterpart_teacher": "",
-      "note": ""
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "So",
@@ -751,7 +1257,7 @@
       "change_type": "SPOJENO",
       "change_type_raw": "spojí",
       "counterpart_teacher": "Bj",
-      "note": ""
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "So",
@@ -767,7 +1273,23 @@
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "counterpart_teacher": "Nz",
-      "note": ""
+      "note": "[poznámka skryta]"
+    },
+    {
+      "teacher_key": "Vl",
+      "teacher_display": "Vl",
+      "teacher_code": "Vl",
+      "role": "supluje",
+      "hour_from": 5,
+      "hour_to": 5,
+      "class_name": "4D",
+      "subject": "Ek",
+      "group_name": "",
+      "room": "13",
+      "change_type": "SUPLOVANI",
+      "change_type_raw": "supluje",
+      "counterpart_teacher": "(Hf)",
+      "note": "[poznámka skryta]"
     },
     {
       "teacher_key": "Šb",
@@ -783,7 +1305,7 @@
       "change_type": "SUPLOVANI",
       "change_type_raw": "supluje",
       "counterpart_teacher": "(Mt)",
-      "note": ""
+      "note": "[poznámka skryta]"
     }
   ]
 }

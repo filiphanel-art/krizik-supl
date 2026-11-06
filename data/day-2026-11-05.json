@@ -5,6 +5,9 @@
   "school_name": "Vyšší odborná škola a Střední průmyslová škola elektrotechnická Františka Křižíka",
   "exported_at": "2026-11-05T08:26:00+01:00",
   "exported_at_display": "5. 11. 2026 08:26",
+  "data_source": "file",
+  "source_label": "Soubor (Bakaláři export)",
+  "fetched_at": "",
   "absent_classes": [
     {
       "class_name": "3B",
@@ -483,7 +486,7 @@
   ],
   "class_changes": [
     {
-      "id": 770,
+      "id": 874,
       "date": "2026-11-05",
       "class_name": "1A",
       "hour_from": 1,
@@ -500,11 +503,11 @@
       "orig_teacher_resolved": "",
       "note": "na 4. hod",
       "paired_hour": 4,
-      "paired_change_id": 772,
+      "paired_change_id": 876,
       "raw_row_text": ""
     },
     {
-      "id": 771,
+      "id": 875,
       "date": "2026-11-05",
       "class_name": "1A",
       "hour_from": 3,
@@ -525,7 +528,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 772,
+      "id": 876,
       "date": "2026-11-05",
       "class_name": "1A",
       "hour_from": 4,
@@ -542,11 +545,11 @@
       "orig_teacher_resolved": "",
       "note": "z 1. hod",
       "paired_hour": 1,
-      "paired_change_id": 770,
+      "paired_change_id": 874,
       "raw_row_text": ""
     },
     {
-      "id": 773,
+      "id": 877,
       "date": "2026-11-05",
       "class_name": "1A",
       "hour_from": 5,
@@ -567,7 +570,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 774,
+      "id": 878,
       "date": "2026-11-05",
       "class_name": "1A",
       "hour_from": 5,
@@ -588,7 +591,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 775,
+      "id": 879,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 2,
@@ -609,7 +612,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 776,
+      "id": 880,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 4,
@@ -630,7 +633,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 777,
+      "id": 881,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 4,
@@ -651,7 +654,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 778,
+      "id": 882,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 4,
@@ -672,7 +675,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 779,
+      "id": 883,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 5,
@@ -693,7 +696,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 780,
+      "id": 884,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 6,
@@ -714,7 +717,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 781,
+      "id": 885,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 7,
@@ -735,7 +738,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 782,
+      "id": 886,
       "date": "2026-11-05",
       "class_name": "1C",
       "hour_from": 2,
@@ -756,7 +759,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 783,
+      "id": 887,
       "date": "2026-11-05",
       "class_name": "1C",
       "hour_from": 2,
@@ -777,7 +780,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 784,
+      "id": 888,
       "date": "2026-11-05",
       "class_name": "1D",
       "hour_from": 1,
@@ -798,7 +801,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 785,
+      "id": 889,
       "date": "2026-11-05",
       "class_name": "1D",
       "hour_from": 4,
@@ -819,7 +822,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 786,
+      "id": 890,
       "date": "2026-11-05",
       "class_name": "1D",
       "hour_from": 5,
@@ -840,7 +843,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 787,
+      "id": 891,
       "date": "2026-11-05",
       "class_name": "2B",
       "hour_from": 1,
@@ -861,7 +864,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 788,
+      "id": 892,
       "date": "2026-11-05",
       "class_name": "2B",
       "hour_from": 2,
@@ -882,7 +885,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 789,
+      "id": 893,
       "date": "2026-11-05",
       "class_name": "2B",
       "hour_from": 3,
@@ -903,7 +906,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 790,
+      "id": 894,
       "date": "2026-11-05",
       "class_name": "2C",
       "hour_from": 3,
@@ -924,7 +927,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 791,
+      "id": 895,
       "date": "2026-11-05",
       "class_name": "2C",
       "hour_from": 4,
@@ -945,7 +948,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 792,
+      "id": 896,
       "date": "2026-11-05",
       "class_name": "2D",
       "hour_from": 5,
@@ -966,7 +969,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 793,
+      "id": 897,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 1,
@@ -983,11 +986,11 @@
       "orig_teacher_resolved": "",
       "note": "na 4. hod",
       "paired_hour": 4,
-      "paired_change_id": 796,
+      "paired_change_id": 900,
       "raw_row_text": ""
     },
     {
-      "id": 794,
+      "id": 898,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 2,
@@ -998,7 +1001,7 @@
       "room_changed": true,
       "change_type": "ZMENA_UCEBNY",
       "change_type_raw": "změna",
-      "sub_teacher": "P. J.",
+      "sub_teacher": "Pk",
       "sub_teacher_changed": false,
       "orig_teacher_code": "",
       "orig_teacher_resolved": "",
@@ -1008,7 +1011,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 795,
+      "id": 899,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 3,
@@ -1029,7 +1032,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 796,
+      "id": 900,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 4,
@@ -1046,11 +1049,11 @@
       "orig_teacher_resolved": "",
       "note": "z 1. hod",
       "paired_hour": 1,
-      "paired_change_id": 793,
+      "paired_change_id": 897,
       "raw_row_text": ""
     },
     {
-      "id": 797,
+      "id": 901,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 5,
@@ -1071,7 +1074,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 798,
+      "id": 902,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 6,
@@ -1082,7 +1085,7 @@
       "room_changed": true,
       "change_type": "ZMENA_UCEBNY",
       "change_type_raw": "změna",
-      "sub_teacher": "P. J.",
+      "sub_teacher": "Pk",
       "sub_teacher_changed": false,
       "orig_teacher_code": "",
       "orig_teacher_resolved": "",
@@ -1092,7 +1095,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 799,
+      "id": 903,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 7,
@@ -1113,7 +1116,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 800,
+      "id": 904,
       "date": "2026-11-05",
       "class_name": "3B",
       "hour_from": 1,
@@ -1134,7 +1137,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 801,
+      "id": 905,
       "date": "2026-11-05",
       "class_name": "4A",
       "hour_from": 1,
@@ -1155,7 +1158,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 802,
+      "id": 906,
       "date": "2026-11-05",
       "class_name": "V1",
       "hour_from": 3,
@@ -1172,11 +1175,11 @@
       "orig_teacher_resolved": "",
       "note": "z 7. hod",
       "paired_hour": 7,
-      "paired_change_id": 806,
+      "paired_change_id": 910,
       "raw_row_text": ""
     },
     {
-      "id": 803,
+      "id": 907,
       "date": "2026-11-05",
       "class_name": "V1",
       "hour_from": 4,
@@ -1197,7 +1200,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 804,
+      "id": 908,
       "date": "2026-11-05",
       "class_name": "V1",
       "hour_from": 5,
@@ -1218,7 +1221,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 805,
+      "id": 909,
       "date": "2026-11-05",
       "class_name": "V1",
       "hour_from": 6,
@@ -1239,7 +1242,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 806,
+      "id": 910,
       "date": "2026-11-05",
       "class_name": "V1",
       "hour_from": 7,
@@ -1256,11 +1259,11 @@
       "orig_teacher_resolved": "",
       "note": "na 3. hod",
       "paired_hour": 3,
-      "paired_change_id": 802,
+      "paired_change_id": 906,
       "raw_row_text": ""
     },
     {
-      "id": 807,
+      "id": 911,
       "date": "2026-11-05",
       "class_name": "V2",
       "hour_from": 1,
@@ -1853,38 +1856,6 @@
       "note": "na 3. hod"
     },
     {
-      "teacher_key": "P. J.",
-      "teacher_display": "P. J.",
-      "teacher_code": "P. J.",
-      "role": "změna učebny",
-      "hour_from": 2,
-      "hour_to": 2,
-      "class_name": "3A",
-      "subject": "Ez",
-      "group_name": "",
-      "room": "8",
-      "change_type": "ZMENA_UCEBNY",
-      "change_type_raw": "změna",
-      "counterpart_teacher": "",
-      "note": ""
-    },
-    {
-      "teacher_key": "P. J.",
-      "teacher_display": "P. J.",
-      "teacher_code": "P. J.",
-      "role": "změna učebny",
-      "hour_from": 6,
-      "hour_to": 6,
-      "class_name": "3A",
-      "subject": "Es",
-      "group_name": "",
-      "room": "8",
-      "change_type": "ZMENA_UCEBNY",
-      "change_type_raw": "změna",
-      "counterpart_teacher": "",
-      "note": ""
-    },
-    {
       "teacher_key": "Pe",
       "teacher_display": "Pe",
       "teacher_code": "Pe",
@@ -1962,6 +1933,38 @@
       "change_type": "SPOJENO",
       "change_type_raw": "spojí",
       "counterpart_teacher": "Št",
+      "note": ""
+    },
+    {
+      "teacher_key": "Pk",
+      "teacher_display": "Pk",
+      "teacher_code": "Pk",
+      "role": "změna učebny",
+      "hour_from": 2,
+      "hour_to": 2,
+      "class_name": "3A",
+      "subject": "Ez",
+      "group_name": "",
+      "room": "8",
+      "change_type": "ZMENA_UCEBNY",
+      "change_type_raw": "změna",
+      "counterpart_teacher": "",
+      "note": ""
+    },
+    {
+      "teacher_key": "Pk",
+      "teacher_display": "Pk",
+      "teacher_code": "Pk",
+      "role": "změna učebny",
+      "hour_from": 6,
+      "hour_to": 6,
+      "class_name": "3A",
+      "subject": "Es",
+      "group_name": "",
+      "room": "8",
+      "change_type": "ZMENA_UCEBNY",
+      "change_type_raw": "změna",
+      "counterpart_teacher": "",
       "note": ""
     },
     {

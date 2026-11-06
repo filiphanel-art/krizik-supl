@@ -86,6 +86,10 @@
         searchInput: document.getElementById("search-input"),
         btnClearFilter: document.getElementById("btn-clear-filter"),
         dayHeading: document.getElementById("day-heading"),
+        sourceBadge: document.getElementById("source-badge"),
+        sourceBadgeText: document.getElementById("source-badge-text"),
+        connectionIndicator: document.getElementById("connection-indicator"),
+        connectionText: document.getElementById("connection-text"),
         gridView: document.getElementById("grid-view")
       }
     : {};
@@ -237,6 +241,42 @@
       els.bannerOffline.classList.remove("hidden");
     } else {
       els.bannerOffline.classList.add("hidden");
+    }
+
+    if (els.connectionIndicator) {
+      if (state.isOffline) {
+        els.connectionIndicator.className = "connection-indicator offline";
+        els.connectionIndicator.title = "Stav spojení: Offline";
+        if (els.connectionText) els.connectionText.textContent = "Offline";
+      } else {
+        els.connectionIndicator.className = "connection-indicator online";
+        els.connectionIndicator.title = "Stav spojení: Online";
+        if (els.connectionText) els.connectionText.textContent = "Online";
+      }
+    }
+
+    if (els.sourceBadge) {
+      const isWeb =
+        day &&
+        (day.data_source === "web" ||
+          (day.source_label && day.source_label.toLowerCase().includes("web")));
+      if (isWeb) {
+        els.sourceBadge.className = "source-badge source-web";
+        const srcLabel = (day && day.source_label) || "Web (klasifikace.skolakrizik.cz)";
+        if (els.sourceBadgeText) {
+          els.sourceBadgeText.textContent = "Zdroj: " + srcLabel;
+        } else {
+          els.sourceBadge.textContent = "Zdroj: " + srcLabel;
+        }
+      } else {
+        els.sourceBadge.className = "source-badge source-file";
+        const srcLabel = (day && day.source_label) || "Soubor (Bakaláři export)";
+        if (els.sourceBadgeText) {
+          els.sourceBadgeText.textContent = "Zdroj: " + srcLabel;
+        } else {
+          els.sourceBadge.textContent = "Zdroj: " + srcLabel;
+        }
+      }
     }
   }
 
@@ -704,6 +744,17 @@
   }
 
   if (hasDom) {
+    window.addEventListener("online", () => {
+      state.isOffline = false;
+      renderBannersAndHeader();
+      loadData(state.selectedDate, true);
+    });
+
+    window.addEventListener("offline", () => {
+      state.isOffline = true;
+      renderBannersAndHeader();
+    });
+
     window.addEventListener("resize", () => {
       renderAll();
     });
