@@ -395,8 +395,8 @@ def test_strip_04_integration_dom_and_api_strip_blocks(tmp_path: Path) -> None:
 
         r_index = client.get("/")
         assert r_index.status_code == 200
-        assert 'href="styles.css?v=14"' in r_index.text
-        assert 'src="app.js?v=14"' in r_index.text
+        assert 'href="styles.css?v=15"' in r_index.text
+        assert 'src="app.js?v=15"' in r_index.text
 
 
 def test_strip_05_anonymization_and_security_pills(tmp_path: Path) -> None:
@@ -647,7 +647,7 @@ def test_ui_indicators_01() -> None:
     styles_css = (static_dir / "styles.css").read_text(encoding="utf-8")
 
     assert 'id="connection-indicator"' not in index_html
-    assert 'id="source-badge"' in index_html
+    assert 'id="source-badge"' not in index_html
 
     assert ".source-badge" in styles_css
 
@@ -1261,10 +1261,11 @@ def test_static_export_no_hidden_notes_01(tmp_path: Path) -> None:
 
     # b) dist/index.html neobsahuje natvrdo zapsané Zdroj: Soubor ani statickou třídu source-file
     index_html = (dist_dir / "index.html").read_text(encoding="utf-8")
+    assert 'id="source-badge"' not in index_html
     assert "source-badge source-file" not in index_html
     assert "Zdroj: Soubor (Bakaláři export)" not in index_html
     assert "Načítám zdroj…" not in index_html
-    assert "?v=14" in index_html
+    assert "?v=15" in index_html
 
     # c) dist/data/day-2026-11-06.json obsahuje čas v exported_at_display a data_source = 'web'
     fri_file = dist_dir / "data" / "day-2026-11-06.json"
@@ -1291,7 +1292,8 @@ def test_clean_header_no_online_01() -> None:
     assert '<div id="exported-at-label"></div>' in index_html
     assert '<div id="updated-at-label"></div>' in index_html
     assert '<h2 class="day-heading" id="day-heading"></h2>' in index_html
-    assert 'id="source-badge" class="source-badge hidden"' in index_html
+    assert 'id="source-badge"' not in index_html
+    assert 'id="source-badge-text"' not in index_html
 
 
 def test_default_view_is_grid_01() -> None:
@@ -1838,6 +1840,403 @@ def test_source_badge_clean_load_01() -> None:
     assert "Web (klasifikace.skolakrizik.cz)" in output["afterText"]
     assert "Načteno 6. 11. 2026 v 22:17" in output["afterText"]
 
+def test_clean_header_no_source_badge_01() -> None:
+    """TEST-CLEAN-HEADER-NO-SOURCE-BADGE-01: Kontrola index.html a dist/index.html.
+
+    V DOMu neexistuje #source-badge ani #source-badge-text. V záhlaví je přítomen pouze čistý element #day-heading.
+    Neobsahuje statické texty „Zdroj: Soubor“ ani „Zdroj: Web“.
+    """
+    for html_path in (
+        Path(__file__).resolve().parent.parent / "app" / "static" / "index.html",
+        Path(__file__).resolve().parent.parent / "dist" / "index.html",
+    ):
+        content = html_path.read_text(encoding="utf-8")
+        assert 'id="source-badge"' not in content, f"Nalezen #source-badge v {html_path}"
+        assert 'id="source-badge-text"' not in content, f"Nalezen #source-badge-text v {html_path}"
+        assert '<h2 class="day-heading" id="day-heading"></h2>' in content
+        assert "Zdroj: Soubor" not in content
+        assert "Zdroj: Web" not in content
 
 
+def test_btn_view_cards_renamed_01() -> None:
+    """TEST-BTN-VIEW-CARDS-RENAMED-01: Kontrola názvu a atributů tlačítka #btn-view-cards v šablonách.
 
+    Tlačítko #btn-view-cards obsahuje text Přehled po třídách a tooltip title="Zobrazit rozpis změn rozdělený po jednotlivých třídách".
+    V HTML se nevyskytuje řetězec Old (Seznam karet).
+    """
+    for html_path in (
+        Path(__file__).resolve().parent.parent / "app" / "static" / "index.html",
+        Path(__file__).resolve().parent.parent / "dist" / "index.html",
+    ):
+        content = html_path.read_text(encoding="utf-8")
+        assert "Old (Seznam karet)" not in content
+        assert "Old pohled" not in content
+        assert 'id="btn-view-cards"' in content
+        assert 'title="Zobrazit rozpis změn rozdělený po jednotlivých třídách"' in content
+        assert "Přehled po třídách" in content
+
+
+def test_js_graceful_without_source_badge_01() -> None:
+    """TEST-JS-GRACEFUL-WITHOUT-SOURCE-BADGE-01: Inicializace app.js a volání renderAll() a updateSourceBadge(day)
+
+    v prostředí, kde document.getElementById('source-badge') vrací null.
+    Funkce proběhnou bez vyhození výjimky (TypeError: Cannot read properties of null).
+    """
+    script = """
+    const elements = {};
+    function createMockElement(id, tag = 'div') {
+      const classListSet = new Set();
+      const el = {
+        id,
+        tagName: tag.toUpperCase(),
+        className: '',
+        textContent: '',
+        children: [],
+        listeners: {},
+        classList: {
+          add: (c) => { classListSet.add(c); el.className = Array.from(classListSet).join(' '); },
+          remove: (c) => { classListSet.delete(c); el.className = Array.from(classListSet).join(' '); },
+          toggle: (c, force) => {
+            if (force === undefined) {
+              if (classListSet.has(c)) classListSet.delete(c); else classListSet.add(c);
+            } else if (force) {
+              classListSet.add(c);
+            } else {
+              classListSet.delete(c);
+            }
+            el.className = Array.from(classListSet).join(' ');
+          },
+          contains: (c) => classListSet.has(c)
+        },
+        setAttribute: (k, v) => { el[k] = v; },
+        getAttribute: (k) => el[k] || '',
+        replaceChildren: () => { el.children = []; },
+        appendChild: (child) => { el.children.push(child); return child; },
+        querySelectorAll: (sel) => el.children,
+        addEventListener: (evt, fn) => { el.listeners[evt] = fn; }
+      };
+      elements[id] = el;
+      return el;
+    }
+
+    createMockElement('main-container');
+    createMockElement('school-name');
+    createMockElement('exported-at-label');
+    createMockElement('updated-at-label');
+    createMockElement('banner-parse-error');
+    createMockElement('banner-parse-error-text');
+    createMockElement('banner-stale');
+    createMockElement('banner-stale-text');
+    createMockElement('banner-offline');
+    createMockElement('date-tabs');
+    createMockElement('view-tabs');
+    createMockElement('btn-view-grid', 'button');
+    createMockElement('btn-view-cards', 'button');
+    createMockElement('entity-select');
+    createMockElement('search-input');
+    createMockElement('btn-clear-filter');
+    createMockElement('day-heading');
+    // Notice: source-badge and source-badge-text are intentionally NOT created and return null
+    createMockElement('grid-view');
+    createMockElement('cards-view');
+
+    global.window = {
+      location: { search: '' },
+      addEventListener: () => {},
+      __STATIC_EXPORT__: true,
+      innerHeight: 900
+    };
+    global.document = {
+      getElementById: (id) => {
+        if (id === 'source-badge' || id === 'source-badge-text') return null;
+        return elements[id] || createMockElement(id);
+      },
+      createElement: (tag) => createMockElement('', tag),
+      createElementNS: () => createMockElement('', 'svg'),
+      addEventListener: () => {},
+      documentElement: { scrollTop: 0, scrollHeight: 900 },
+      body: { scrollTop: 0, scrollHeight: 900, classList: { contains: () => false, add: () => {}, remove: () => {} } }
+    };
+
+    const app = require('./app/static/app.js');
+
+    const day = {
+      date: '2026-11-05',
+      day_name: 'Čtvrtek',
+      data_source: 'web',
+      source_label: 'Web (klasifikace.skolakrizik.cz)',
+      exported_at: '2026-11-05T08:26:00+01:00',
+      exported_at_display: '5. 11. 2026 08:26',
+      class_changes: []
+    };
+
+    let errorThrown = null;
+    try {
+      app.updateSourceBadge(day);
+      app.updateSourceBadge(null);
+      app.state.dayData = day;
+      app.renderAll();
+    } catch (err) {
+      errorThrown = String(err);
+    }
+
+    console.log(JSON.stringify({ errorThrown, sourceBadgeIsNull: app.els.sourceBadge === null }));
+    """
+    output = json.loads(_run_node_script(script))
+    assert output["errorThrown"] is None
+    assert output["sourceBadgeIsNull"] is True
+
+
+def test_default_view_is_grid_02() -> None:
+    """TEST-DEFAULT-VIEW-IS-GRID-02: Načtení aplikace v defaultním stavu.
+
+    state.activeView === 'grid'. #grid-view je zobrazen, #cards-view má třídu .hidden.
+    Tlačítko #btn-view-grid je aktivní, #btn-view-cards („Přehled po třídách“) není aktivní.
+    """
+    script = """
+    const elements = {};
+    function createMockElement(id, tag = 'div') {
+      const classListSet = new Set();
+      const el = {
+        id,
+        tagName: tag.toUpperCase(),
+        className: '',
+        textContent: '',
+        children: [],
+        listeners: {},
+        classList: {
+          add: (c) => { classListSet.add(c); el.className = Array.from(classListSet).join(' '); },
+          remove: (c) => { classListSet.delete(c); el.className = Array.from(classListSet).join(' '); },
+          toggle: (c, force) => {
+            if (force === undefined) {
+              if (classListSet.has(c)) classListSet.delete(c); else classListSet.add(c);
+            } else if (force) {
+              classListSet.add(c);
+            } else {
+              classListSet.delete(c);
+            }
+            el.className = Array.from(classListSet).join(' ');
+          },
+          contains: (c) => classListSet.has(c)
+        },
+        setAttribute: (k, v) => { el[k] = v; },
+        getAttribute: (k) => el[k] || '',
+        replaceChildren: () => { el.children = []; },
+        appendChild: (child) => { el.children.push(child); return child; },
+        querySelectorAll: (sel) => el.children,
+        addEventListener: (evt, fn) => { el.listeners[evt] = fn; }
+      };
+      elements[id] = el;
+      return el;
+    }
+
+    createMockElement('main-container');
+    createMockElement('school-name');
+    createMockElement('exported-at-label');
+    createMockElement('updated-at-label');
+    createMockElement('banner-parse-error');
+    createMockElement('banner-parse-error-text');
+    createMockElement('banner-stale');
+    createMockElement('banner-stale-text');
+    createMockElement('banner-offline');
+    createMockElement('date-tabs');
+    createMockElement('view-tabs');
+    createMockElement('btn-view-grid', 'button');
+    createMockElement('btn-view-cards', 'button');
+    createMockElement('entity-select');
+    createMockElement('search-input');
+    createMockElement('btn-clear-filter');
+    createMockElement('day-heading');
+    createMockElement('grid-view');
+    createMockElement('cards-view');
+
+    global.window = {
+      location: { search: '' },
+      addEventListener: () => {},
+      __STATIC_EXPORT__: true,
+      innerHeight: 900
+    };
+    global.document = {
+      getElementById: (id) => (id === 'source-badge' || id === 'source-badge-text') ? null : (elements[id] || createMockElement(id)),
+      createElement: (tag) => createMockElement('', tag),
+      createElementNS: () => createMockElement('', 'svg'),
+      addEventListener: () => {},
+      documentElement: { scrollTop: 0, scrollHeight: 900 },
+      body: { scrollTop: 0, scrollHeight: 900, classList: { contains: () => false, add: () => {}, remove: () => {} } }
+    };
+
+    const app = require('./app/static/app.js');
+
+    app.state.dayData = {
+      date: '2026-11-05',
+      day_name: 'Čtvrtek',
+      class_changes: [
+        { class_name: '1.A', hour_from: 1, hour_to: 1, subject: 'CJL', change_type: 'SUPLOVANI', sub_teacher: 'Kodad Miloš', note: 'Změna učitele' }
+      ]
+    };
+    app.renderAll();
+
+    console.log(JSON.stringify({
+      activeView: app.state.activeView,
+      gridHasHidden: elements['grid-view'].classList.contains('hidden'),
+      cardsHasHidden: elements['cards-view'].classList.contains('hidden'),
+      btnGridActive: elements['btn-view-grid'].classList.contains('active'),
+      btnCardsActive: elements['btn-view-cards'].classList.contains('active'),
+      btnGridSelected: elements['btn-view-grid']['aria-selected'],
+      btnCardsSelected: elements['btn-view-cards']['aria-selected']
+    }));
+    """
+    output = json.loads(_run_node_script(script))
+    assert output["activeView"] == "grid"
+    assert output["gridHasHidden"] is False
+    assert output["cardsHasHidden"] is True
+    assert output["btnGridActive"] is True
+    assert output["btnCardsActive"] is False
+    assert output["btnGridSelected"] == "true"
+    assert output["btnCardsSelected"] == "false"
+
+
+def test_switch_to_prehled_trid_01() -> None:
+    """TEST-SWITCH-TO-PREHLED-TRID-01: Kliknutí na tlačítko přepnutí do režimu 'cards' (Přehled po třídách).
+
+    Přepne state.activeView na 'cards', zobrazí #cards-view, skryje #grid-view, nastaví třídu .active na #btn-view-cards.
+    """
+    script = """
+    const elements = {};
+    function createMockElement(id, tag = 'div') {
+      const classListSet = new Set();
+      const el = {
+        id,
+        tagName: tag.toUpperCase(),
+        className: '',
+        textContent: '',
+        children: [],
+        listeners: {},
+        classList: {
+          add: (c) => { classListSet.add(c); el.className = Array.from(classListSet).join(' '); },
+          remove: (c) => { classListSet.delete(c); el.className = Array.from(classListSet).join(' '); },
+          toggle: (c, force) => {
+            if (force === undefined) {
+              if (classListSet.has(c)) classListSet.delete(c); else classListSet.add(c);
+            } else if (force) {
+              classListSet.add(c);
+            } else {
+              classListSet.delete(c);
+            }
+            el.className = Array.from(classListSet).join(' ');
+          },
+          contains: (c) => classListSet.has(c)
+        },
+        setAttribute: (k, v) => { el[k] = v; },
+        getAttribute: (k) => el[k] || '',
+        replaceChildren: () => { el.children = []; },
+        appendChild: (child) => { el.children.push(child); return child; },
+        querySelectorAll: (sel) => el.children,
+        addEventListener: (evt, fn) => { el.listeners[evt] = fn; }
+      };
+      elements[id] = el;
+      return el;
+    }
+
+    createMockElement('main-container');
+    createMockElement('school-name');
+    createMockElement('exported-at-label');
+    createMockElement('updated-at-label');
+    createMockElement('banner-parse-error');
+    createMockElement('banner-parse-error-text');
+    createMockElement('banner-stale');
+    createMockElement('banner-stale-text');
+    createMockElement('banner-offline');
+    createMockElement('date-tabs');
+    createMockElement('view-tabs');
+    createMockElement('btn-view-grid', 'button');
+    createMockElement('btn-view-cards', 'button');
+    createMockElement('entity-select');
+    createMockElement('search-input');
+    createMockElement('btn-clear-filter');
+    createMockElement('day-heading');
+    createMockElement('grid-view');
+    createMockElement('cards-view');
+
+    global.window = {
+      location: { search: '' },
+      addEventListener: () => {},
+      __STATIC_EXPORT__: true,
+      innerHeight: 900
+    };
+    global.document = {
+      getElementById: (id) => (id === 'source-badge' || id === 'source-badge-text') ? null : (elements[id] || createMockElement(id)),
+      createElement: (tag) => createMockElement('', tag),
+      createElementNS: () => createMockElement('', 'svg'),
+      addEventListener: () => {},
+      documentElement: { scrollTop: 0, scrollHeight: 900 },
+      body: { scrollTop: 0, scrollHeight: 900, classList: { contains: () => false, add: () => {}, remove: () => {} } }
+    };
+
+    const app = require('./app/static/app.js');
+
+    app.state.dayData = {
+      date: '2026-11-05',
+      day_name: 'Čtvrtek',
+      class_changes: [
+        { class_name: '1.A', hour_from: 1, hour_to: 1, subject: 'CJL', change_type: 'SUPLOVANI', sub_teacher: 'Kodad Miloš', note: 'Změna učitele' }
+      ]
+    };
+
+    app.renderAll();
+    app.switchView('cards');
+
+    console.log(JSON.stringify({
+      activeView: app.state.activeView,
+      gridHasHidden: elements['grid-view'].classList.contains('hidden'),
+      cardsHasHidden: elements['cards-view'].classList.contains('hidden'),
+      btnGridActive: elements['btn-view-grid'].classList.contains('active'),
+      btnCardsActive: elements['btn-view-cards'].classList.contains('active'),
+      btnGridSelected: elements['btn-view-grid']['aria-selected'],
+      btnCardsSelected: elements['btn-view-cards']['aria-selected']
+    }));
+    """
+    output = json.loads(_run_node_script(script))
+    assert output["activeView"] == "cards"
+    assert output["gridHasHidden"] is True
+    assert output["cardsHasHidden"] is False
+    assert output["btnGridActive"] is False
+    assert output["btnCardsActive"] is True
+    assert output["btnGridSelected"] == "false"
+    assert output["btnCardsSelected"] == "true"
+
+
+def test_static_export_no_source_badge_01(tmp_path: Path) -> None:
+    """TEST-STATIC-EXPORT-NO-SOURCE-BADGE-01: Spuštění export_static_site do dočasné složky.
+
+    dist/index.html neobsahuje #source-badge, obsahuje Přehled po třídách a odkazuje na assety s verzí ?v=15.
+    """
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.parser import parse_suplovani_html
+    from app.static_export import export_static_site
+
+    watch_dir = tmp_path / "exports"
+    watch_dir.mkdir()
+    db_path = tmp_path / "test_no_badge.db"
+    storage = Storage(db_path)
+
+    raw_file = (SAMPLES_DIR / "suplprehtrid.html").read_bytes()
+    res_file = parse_suplovani_html(raw_file, file_name="suplprehtrid.html")
+    storage.save_parse_result(res_file, file_hash="hash1", file_size=len(raw_file))
+
+    dist_dir = tmp_path / "dist"
+    cfg = AppConfig(db_path=db_path, watch_dir=watch_dir)
+    export_static_site(cfg, output_dir=dist_dir)
+
+    index_html = (dist_dir / "index.html").read_text(encoding="utf-8")
+    assert 'id="source-badge"' not in index_html
+    assert 'id="source-badge-text"' not in index_html
+    assert "Zdroj: Soubor" not in index_html
+    assert "Zdroj: Web" not in index_html
+    assert "Old (Seznam karet)" not in index_html
+    assert "Přehled po třídách" in index_html
+    assert 'title="Zobrazit rozpis změn rozdělený po jednotlivých třídách"' in index_html
+    assert "?v=15" in index_html
+    assert "styles.css?v=15" in index_html
+    assert "app.js?v=15" in index_html

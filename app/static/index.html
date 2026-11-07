@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=14">
+  <link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body class="tab-grid">
   <header class="app-header">
@@ -73,7 +73,7 @@
         <div class="date-tabs" id="date-tabs" role="tablist" aria-label="Výběr dne"></div>
         <div class="view-tabs" id="view-tabs" role="tablist" aria-label="Režim zobrazení">
           <button type="button" id="btn-view-grid" class="view-tab active" role="tab" aria-selected="true" data-view="grid" title="Zobrazit přehlednou tabulku dne na 1 stránku">Tabulka</button>
-          <button type="button" id="btn-view-cards" class="view-tab" role="tab" aria-selected="false" data-view="cards" title="Zobrazit původní seznam karet tříd s plynulým posunem">Old (Seznam karet)</button>
+          <button type="button" id="btn-view-cards" class="view-tab" role="tab" aria-selected="false" data-view="cards" title="Zobrazit rozpis změn rozdělený po jednotlivých třídách">Přehled po třídách</button>
         </div>
         <div class="inline-filter">
           <select id="entity-select" class="filter-select" aria-label="Filtr třídy">
@@ -90,10 +90,6 @@
         </div>
         <div class="heading-with-source">
           <h2 class="day-heading" id="day-heading"></h2>
-          <span id="source-badge" class="source-badge hidden" role="status" title="Zdroj dat">
-            <span class="source-icon" aria-hidden="true"></span>
-            <span class="source-text" id="source-badge-text"></span>
-          </span>
         </div>
       </div>
     </section>
@@ -101,7 +97,7 @@
     <!-- Hlavní tabulka celého dne na 1 stránku (výchozí pohled) -->
     <section id="grid-view" class="grid-view" aria-live="polite" aria-label="Přehled dne v tabulce"></section>
 
-    <!-- Původní vertikální seznam karet rozdělený po třídách (Old pohled) -->
+    <!-- Vertikální seznam rozdělený po třídách (Přehled po třídách) -->
     <section id="cards-view" class="cards-view hidden" aria-live="polite" aria-label="Seznam karet po třídách"></section>
   </main>
 
@@ -109,6 +105,6 @@
     Ukončit celou obrazovku (Esc)
   </button>
 
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

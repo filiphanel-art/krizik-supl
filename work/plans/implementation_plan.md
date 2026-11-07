@@ -1,129 +1,83 @@
-# Implementation Plan: Přidání záložky „Old (Seznam karet)“, odstranění zeleného online a placeholderů pro čistý produkční vzhled
+# Implementation Plan: Odstranění odznaku zdroje (#source-badge), přejmenování na „Přehled po třídách“ a deployment GitHub Pages
 
 ## Summary
-Tento implementační plán řeší požadavky uživatele na dokončení produkční verze aplikace **Suplování Viewer**:
+Tento implementační plán řeší požadavky uživatele na finální úpravy klientského rozhraní a publikaci aplikace **Suplování Viewer**:
 
-1. **Odebrání `[poznámka skryta]` a zachování veřejných poznámek rozvrhu:**
-   - Garantovat, že v celém repozitáři, v logice (`app/anonymizer.py`), v databázi, v klientském rozhraní i ve vygenerovaném statickém exportu v `dist/` se nikde nezobrazuje text `"[poznámka skryta]"`.
-   - Všechny organizační poznámky k rozvrhu (*„odpadá“*, *„supluje“*, *„spojí“*, *„změna učebny“*, *„přesun z...“*, *„Exkurze“*, *„Souvislá praxe“*) jsou veřejné a zůstávají zachovány v plném skutečném znění.
-
-2. **Přidání staré záložky „Old (Seznam karet)“ vedle výchozí „Tabulky“:**
-   - Přidat přepínač režimu zobrazení:
-     - **„Tabulka“** (výchozí / default – stávající přehledná jednodenní matice změn na 1 obrazovku `#grid-view`).
-     - **„Old (Seznam karet)“** (vertikální seznam karet `.group-card` rozdělený po třídách s jednotlivými položkami změn v `#cards-view`, který se v režimu Celá obrazovka / Kiosk plynule posouvá shora dolů a zpět).
-   - Výchozím stavem při načtení stránky (včetně obnovení a statického exportu) MUSÍ být vždy **„Tabulka“** (`activeView = "grid"`).
-   - Plynulý posun (kiosk auto-scroll) funguje na kartách při zobrazení „Old (Seznam karet)“.
-
-3. **Čistý a profesionální produkční vzhled (odstranění zeleného online a placeholderů):**
-   - **Odstranění zeleného online indikátoru:** Prvek `#connection-indicator` (zelená tečka a nápis „Online“) se z hlavičky odstraní. (V případě skutečného výpadku sítě zůstává funkční varovný pruh `#banner-offline`, ale zelená pulzující tečka v běžném provozu nepůsobí rušivě ani jako ladicí prvek).
-   - **Odstranění rušivých statických placeholderů:** V `index.html` a `app.js` odstranit surové texty jako `Datum výpisu: načítám…`, `Poslední kontrola: —`, `Načítám zdroj…`, `Načítám rozvrh…`. Místo nich se použije čistý prázdný výchozí stav, který se po načtení dat elegantně naplní skutečnými údaji.
-   - Čas výpisu a zdroj dat se zobrazují čistě, sjednoceně a bez duplicit.
+1. **Kompletní odebrání zobrazení zdroje dat (`#source-badge`)**:
+   - Odstranění elementu `#source-badge` ("Zdroj: Soubor (Bakaláři export) · Export...") z [app/static/index.html](file:///Users/filip/Downloads/krizik_supl/app/static/index.html) i [dist/index.html](file:///Users/filip/Downloads/krizik_supl/dist/index.html).
+   - Zajištění, že v záhlaví zůstává čistý a nerušený nadpis dne `#day-heading`.
+   - Úprava v [app/static/app.js](file:///Users/filip/Downloads/krizik_supl/app/static/app.js) a [dist/app.js](file:///Users/filip/Downloads/krizik_supl/dist/app.js) garantující, že absence `#source-badge` nezpůsobí žádné JS runtime chyby.
+2. **Přejmenování záložky 'Old' na profesionální název**:
+   - Tlačítko `#btn-view-cards` přejmenovat z „Old (Seznam karet)“ na odborný název **„Přehled po třídách“**.
+   - Doplnit přesný tooltip / atribut `title`: „Zobrazit rozpis změn rozdělený po jednotlivých třídách“.
+   - Zachovat `Tabulka` jako výchozí zobrazení (`activeView = "grid"`).
+3. **Analýza GitHub Pages a bezpečný postup nasazení**:
+   - Vyjasnění architektury: interní server nesouvisí se statickými GitHub Pages. Uživatel na server nemusí.
+   - Definice postupu publikace složky `dist/` do větve `gh-pages` bez nutnosti ručního přepínání větví.
+4. **Aktualizace testovací sady**:
+   - Odstranění zastaralých očekávání na přítomnost `#source-badge` v HTML z [tests/test_web_and_anonymization.py](file:///Users/filip/Downloads/krizik_supl/tests/test_web_and_anonymization.py).
+   - Doplnění nových testů ověřujících čisté záhlaví bez odznaku a nový text tlačítka „Přehled po třídách“.
+5. **Regenerace statického exportu a PDF dokumentace**:
+   - Spuštění exportu `dist/` a přegenerování PDF manuálů v `docs/`.
 
 ---
 
 ## Interfaces & Architektonický návrh
 
 ### 1. Šablony HTML (`app/static/index.html` a `dist/index.html`)
-
-1. **Záhlaví `.app-header`:**
-   - Odstraněn element `#connection-indicator`.
-   - V `.meta-box` vyčištěny statické texty `načítám…` na čisté prázdné elementy, které JS po načtení korektně naplní:
-   ```html
-   <div class="header-actions">
-     <button
-       type="button"
-       id="btn-fullscreen"
-       class="btn-fs"
-       title="Celá obrazovka s automatickým posunem"
-       aria-label="Celá obrazovka s automatickým posunem"
-     >
-       <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-         <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
-       </svg>
-       <span>Celá obrazovka</span>
-     </button>
-     <div class="meta-box" aria-live="polite">
-       <div id="exported-at-label"></div>
-       <div id="updated-at-label"></div>
+1. **Horní lišta a záhlaví dne (.controls-top-row):**
+   - Odstranit prvek `<span id="source-badge" ...>...</span>` z kontejneru `.heading-with-source`.
+   - V `.heading-with-source` zůstává pouze:
+     ```html
+     <div class="heading-with-source">
+       <h2 class="day-heading" id="day-heading"></h2>
      </div>
-   </div>
-   ```
-
-2. **Ovládací lišta `.controls-top-row`:**
-   - Přepínač zobrazení se dvěma volbami za záložkami dnů `#date-tabs`:
-   ```html
-   <div class="view-tabs" id="view-tabs" role="tablist" aria-label="Režim zobrazení">
-     <button type="button" id="btn-view-grid" class="view-tab active" role="tab" aria-selected="true" data-view="grid" title="Zobrazit přehlednou tabulku dne na 1 stránku">Tabulka</button>
-     <button type="button" id="btn-view-cards" class="view-tab" role="tab" aria-selected="false" data-view="cards" title="Zobrazit původní seznam karet tříd s plynulým posunem">Old (Seznam karet)</button>
-   </div>
-   ```
-   - V `.heading-with-source`:
-   ```html
-   <div class="heading-with-source">
-     <h2 class="day-heading" id="day-heading"></h2>
-     <span id="source-badge" class="source-badge hidden" role="status" title="Zdroj dat">
-       <span class="source-icon" aria-hidden="true"></span>
-       <span class="source-text" id="source-badge-text"></span>
-     </span>
-   </div>
-   ```
-
-3. **Obsahový kontejner `<main>`:**
-   ```html
-   <!-- Hlavní tabulka celého dne na 1 stránku (výchozí pohled) -->
-   <section id="grid-view" class="grid-view" aria-live="polite" aria-label="Přehled dne v tabulce"></section>
-
-   <!-- Původní vertikální seznam karet rozdělený po třídách (Old pohled) -->
-   <section id="cards-view" class="cards-view hidden" aria-live="polite" aria-label="Seznam karet po třídách"></section>
-   ```
-
-4. **Navýšení verzování assetů:**
-   `styles.css?v=14` a `app.js?v=14`.
-
----
+     ```
+2. **Přepínač zobrazení (.view-tabs):**
+   - Tlačítko `#btn-view-cards` se aktualizuje:
+     ```html
+     <div class="view-tabs" id="view-tabs" role="tablist" aria-label="Režim zobrazení">
+       <button type="button" id="btn-view-grid" class="view-tab active" role="tab" aria-selected="true" data-view="grid" title="Zobrazit přehlednou tabulku dne na 1 stránku">Tabulka</button>
+       <button type="button" id="btn-view-cards" class="view-tab" role="tab" aria-selected="false" data-view="cards" title="Zobrazit rozpis změn rozdělený po jednotlivých třídách">Přehled po třídách</button>
+     </div>
+     ```
+3. **Komentář u sekce karet v `<main>`:**
+   - Změna z `<!-- Původní vertikální seznam karet rozdělený po třídách (Old pohled) -->` na `<!-- Vertikální seznam rozdělený po třídách (Přehled po třídách) -->`.
+4. **Povýšení verzování assetů (Cache Busting):**
+   - V `index.html` povýšit na `styles.css?v=15` a `app.js?v=15`.
 
 ### 2. Klientská logika (`app/static/app.js` a `dist/app.js`)
-
-1. **Stav aplikace (`state`):**
-   - `activeView: "grid"` jako pevná výchozí hodnota.
-   - Odstraněna závislost na zeleném indikátoru v `renderStatusIndicators` (neexistující element se ignoruje, případný offline stav nadále ovládá `#banner-offline`).
-
-2. **Přepínání pohledů `switchView(viewName)`:**
-   - Při kliknutí na `#btn-view-grid` nebo `#btn-view-cards` nastaví `state.activeView`, resetuje `kiosk.pos = 0`, provede `setScrollTop(0)` a zavolá `renderAll()`.
-   - V `renderViewTabs()` aplikuje třídu `.active` na aktivní tlačítko.
-
-3. **Vykreslení seznamu karet `renderCards(day)`:**
-   - Do `#cards-view` vloží `.grid-strip` s nepřítomnými a suplujícími pedagogy.
-   - Sestaví karty `.group-card` pro jednotlivé třídy se změnami vyfiltrovanými podle `selectedEntity` a textového vyhledávání.
-   - Položky obsahují rozsah hodin, odznaky typů změn, předmět, skupinu, učebnu, učitele se zkratkou a plné znění poznámky `ch.note` (bez `[poznámka skryta]`).
-   - Veškerý obsah je bezpečně vkládán přes `.textContent` (žádný `innerHTML`).
-
-4. **Formátování času a indikátoru zdroje bez placeholderů:**
-   - `#source-badge` je před načtením dat skrytý (`.hidden`), po načtení se zobrazí čistý text:
-     - Pro web: `Zdroj: Web (klasifikace.skolakrizik.cz) · Načteno 6. 11. 2026 v 22:17`
-     - Pro soubor: `Zdroj: Soubor (Bakaláři export) · Export 5. 11. 2026 v 08:26`
-   - Záhlaví výpisu v `#exported-at-label` a `#updated-at-label` se plní pouze tehdy, jsou-li data k dispozici. Žádné surové texty „načítám…“.
-
-5. **Plynulý Kiosk posun:**
-   - V režimu „Old (Seznam karet)“ kiosk automaticky detekuje vertikální přesah a plynule posouvá seznam karet shora dolů s 2,5s pauzou na koncích.
-
----
+1. **Inicializace elementů (`initElements`):**
+   - `els.sourceBadge` a `els.sourceBadgeText` bezpečně vrací `null`, pokud element v DOMu neexistuje.
+2. **Defenzivní chování `updateSourceBadge(day)`:**
+   - Hned na začátku funkce existuje guard:
+     ```javascript
+     function updateSourceBadge(day) {
+       if (!els.sourceBadge) return;
+       // ... zbytek se bezpečně nevykoná
+     }
+     ```
+   - Zajistit, že ani v `renderBannersAndHeader()` ani v `onDateChange()` nedojde k volání metod na `null`.
+3. **Výchozí pohled a kiosk:**
+   - Výchozím stavem zůstává `state.activeView = "grid"`.
 
 ### 3. Vizuální styly (`app/static/styles.css` a `dist/styles.css`)
-
-- Doplnění stylů pro `.view-tabs`, `.view-tab`, `.view-tab.active`.
-- Doplnění stylů pro `.cards-view`, `.cards-container`, `.group-card`, `.group-card-header`, `.group-card-items`, `.group-card-item`, `.item-header`, `.item-detail`.
-- Skrytí `.view-tabs` v režimu Kiosk (`body.kiosk .view-tabs { display: none !important; }`).
-- Čisté zarovnání hlavičky po odstranění connection indicatoru.
+- V CSS třídy `.source-badge` a `.heading-with-source` ponechat pro zpětnou kompatibilitu, případně upravit komentáře (odstranění zmínek o "Old").
 
 ---
 
 ## Dependencies
 
-Žádné nové externí závislosti nejsou potřeba. Projekt využívá standardní čistý stack:
-- **Vanilla JavaScript (ES2022 / DOM API)**
-- **Python 3.12+**
-- **FastAPI**, **HTTPX**
+Pro tuto změnu nejsou vyžadovány žádné nové knihovny. Všechny komponenty staví na standardních, prověřených technologiích:
+
+| Knihovna / Nástroj | Verze | Licence | Oficiální URL | Bezpečnostní status (CVE) |
+|---|---|---|---|---|
+| **Vanilla JavaScript (ES2022)** | ES2022 | N/A (Standard) | https://developer.mozilla.org/en-US/docs/Web/JavaScript | 0 známých CVE (nativní API) |
+| **Python** | 3.12+ | PSF License | https://www.python.org/ | 0 známých CVE |
+| **FastAPI** | >=0.110.0 | MIT | https://github.com/tiangolo/fastapi | 0 známých CVE |
+| **HTTPX** | >=0.27.0 | BSD-3-Clause | https://www.python-httpx.org/ | 0 známých CVE |
+| **Playwright** | >=1.42.0 | Apache 2.0 | https://playwright.dev/python/ | 0 známých CVE |
+| **pytest** | >=8.0.0 | MIT | https://docs.pytest.org/ | 0 známých CVE |
 
 ---
 
@@ -131,18 +85,21 @@ Tento implementační plán řeší požadavky uživatele na dokončení produk�
 
 | Test ID | Typ testu | Testovací scénář a Edge-cases | Očekávaný výsledek |
 |---|---|---|---|
-| `TEST-CLEAN-HEADER-NO-ONLINE-01` | Unit (DOM/JS) | Kontrola prvků v hlavičce aplikace. | Element `#connection-indicator` neexistuje v DOMu nebo je bezpečně odstraněn. V hlavičce se nezobrazují surové texty `Datum výpisu: načítám…` ani `Poslední kontrola: —`. |
-| `TEST-DEFAULT-VIEW-IS-GRID-01` | Unit (DOM/JS) | Načtení aplikace v defaultním stavu. | `state.activeView === "grid"`. `#grid-view` je viditelný, `#cards-view` je skrytý (`.hidden`). Tlačítko `#btn-view-grid` má třídu `.active`. |
-| `TEST-SWITCH-TO-CARDS-VIEW-01` | Unit (DOM/JS) | Kliknutí na `#btn-view-cards`. | `state.activeView === "cards"`. `#cards-view` je viditelný, `#grid-view` je skrytý (`.hidden`). Tlačítko `#btn-view-cards` má třídu `.active`. V `#cards-view` jsou vykresleny karty `.group-card`. |
-| `TEST-CARDS-VIEW-CONTENT-01` | Unit (DOM/JS) | Kontrola obsahu karet v `#cards-view`. | Každá třída se změnami má kartu `.group-card` s hlavičkou a položkami `.group-card-item`. Poznámky jsou vykresleny v plném znění bez řetězce `[poznámka skryta]`. |
-| `TEST-CARDS-FILTER-INTERACTION-01` | Unit (DOM/JS) | Změna filtru třídy v režimu karet. | V `#cards-view` se zobrazí pouze karty odpovídající vybrané třídě. |
-| `TEST-NO-HIDDEN-NOTES-ANYWHERE-01` | Integration (Python) | Kontrola celého repozitáře a výstupu statického exportu v `dist/data/*.json`. | 0 výskytů řetězce `[poznámka skryta]`. |
-| `TEST-SOURCE-BADGE-CLEAN-LOAD-01` | Unit (DOM/JS) | Stav `#source-badge` před a po načtení dat. | Před načtením dat je badge skrytý nebo bez placeholderu `Načítám zdroj…`. Po načtení zobrazuje formátovaný čas a zdroj. |
+| `TEST-CLEAN-HEADER-NO-SOURCE-BADGE-01` | Unit (Python/DOM) | Kontrola `index.html` a `dist/index.html`. | V DOMu neexistuje `#source-badge` ani `#source-badge-text`. V záhlaví je přítomen pouze čistý element `#day-heading`. Neobsahuje statické texty „Zdroj: Soubor“ ani „Zdroj: Web“. |
+| `TEST-BTN-VIEW-CARDS-RENAMED-01` | Unit (Python/DOM) | Kontrola názvu a atributů tlačítka `#btn-view-cards` v šablonách. | Tlačítko `#btn-view-cards` obsahuje text `Přehled po třídách` a tooltip `title="Zobrazit rozpis změn rozdělený po jednotlivých třídách"`. V HTML se nevyskytuje řetězec `Old (Seznam karet)`. |
+| `TEST-JS-GRACEFUL-WITHOUT-SOURCE-BADGE-01` | Unit (Node.js/DOM) | Inicializace `app.js` a volání `app.renderAll()` / `app.updateSourceBadge(day)` v prostředí, kde `document.getElementById('source-badge')` vrací `null`. | Funkce proběhnou bez vyhození výjimky (`TypeError: Cannot read properties of null`). |
+| `TEST-DEFAULT-VIEW-IS-GRID-02` | Unit (Node.js/DOM) | Načtení aplikace v defaultním stavu. | `state.activeView === "grid"`. `#grid-view` je zobrazen, `#cards-view` má třídu `.hidden`. Tlačítko `#btn-view-grid` je aktivní, `#btn-view-cards` („Přehled po třídách“) není aktivní. |
+| `TEST-SWITCH-TO-PREHLED-TRID-01` | Unit (Node.js/DOM) | Kliknutí na `#btn-view-cards` („Přehled po třídách“). | Přepne `state.activeView` na `"cards"`, zobrazí `#cards-view`, skryje `#grid-view`, nastaví třídu `.active` na `#btn-view-cards`. |
+| `TEST-STATIC-EXPORT-NO-SOURCE-BADGE-01` | Integration (Python) | Spuštění `export_static_site` do dočasné složky. | `dist/index.html` neobsahuje `#source-badge`, obsahuje `Přehled po třídách` a odkazuje na assety s verzí `?v=15`. |
+| `TEST-UI-INDICATORS-REGRESSION-01` | Regression (Python) | Regresní ověření `test_ui_indicators_01` v `tests/test_web_and_anonymization.py`. | Test úspěšně projde s novým assertem `assert 'id="source-badge"' not in index_html`. |
 
 ---
 
 ## Security Considerations
 
-1. **XSS prevence:** V novém pohledu karet se veškerá data (třídy, předměty, učebny, jména učitelů, poznámky) vkládají striktně přes `node.textContent` a `el(tag, className, text)`. Žádný `innerHTML`.
-2. **GDPR a ochrana osobních údajů:** Veřejný export `dist/` zůstává 100% anonymizován (všechna jména učitelů jsou nahrazena oficiálními zkratkami). Poznámky jsou veřejné organizační informace.
-3. **Kiosk bezpečnost:** V režimu Kiosk jsou přepínače pohledů a ovládací prvky skryty.
+1. **Robustnost klientského DOM API:**
+   Odstraněním `#source-badge` se zmenšuje plocha manipulace s DOMem. Ochranná podmínka `if (!els.sourceBadge) return;` v `updateSourceBadge` brání zhroucení skriptu při inicializaci.
+2. **Ochrana osobních údajů a anonymizace:**
+   Veřejný export pro GitHub Pages (`dist/`) zůstává 100% anonymizován podle pravidel GDPR (jména vyučujících nahrazena oficiálními zkratkami, veřejné organizační poznámky zachovány).
+3. **Bezpečnost GitHub Pages deploymentu:**
+   Do větve `gh-pages` se odesílá výhradně izolovaný obsah složky `dist/` (žádná databáze `supl.db`, privátní konfigurační soubory ani backendové Python skripty).

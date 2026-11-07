@@ -1,8 +1,18 @@
 # Changelog
 
 ## [Unreleased]
+### Removed
+- Kompletně odstraněn element `#source-badge` ("Zdroj: Soubor / Web") z `app/static/index.html` i `dist/index.html`; v `.heading-with-source` zůstává pouze čistý nadpis dne `#day-heading`.
+
+### Changed
+- Přejmenováno tlačítko `#btn-view-cards` z „Old (Seznam karet)“ na „Přehled po třídách“ s popisem `title="Zobrazit rozpis změn rozdělený po jednotlivých třídách"`.
+- Odstraněny všechny zmínky a komentáře označující zobrazení karet jako „Old“.
+- Verzování klientských assetů navýšeno na `styles.css?v=15` a `app.js?v=15` pro spolehlivou invalidaci vyrovnávací paměti prohlížeče.
+- Aktualizován statický export `dist/` a přegenerována PDF dokumentace v `docs/`.
 
 ### Added
+- Nové testovací specifikace v `tests/test_web_and_anonymization.py`: `TEST-CLEAN-HEADER-NO-SOURCE-BADGE-01`, `TEST-BTN-VIEW-CARDS-RENAMED-01`, `TEST-JS-GRACEFUL-WITHOUT-SOURCE-BADGE-01`, `TEST-DEFAULT-VIEW-IS-GRID-02`, `TEST-SWITCH-TO-PREHLED-TRID-01` a `TEST-STATIC-EXPORT-NO-SOURCE-BADGE-01`.
+
 - Reálný export rozvrhu pro pondělí 9. 11. 2026 z webu Bakalářů (`samples/zmeny_web_sample_2026-11-09.html`) nahrazující dřívější testovací mock data (3 nepřítomní pedagogové Ko, Pe, Sl, uzavřená místnost 7, 14 změn pro třídy 1A, 2C, 3A, 3C, 3D).
 - Nový unit test `TEST-WEB-PARSE-MONDAY-03` ověřující kompletní a bezchybné zpracování pondělního exportu.
 - Podpora pro formát vyučovacích hodin `les.` vedle `hod.` v regulárních výrazech `app/parser_web.py` (např. `4. les. 10:20 - 11:05`).
