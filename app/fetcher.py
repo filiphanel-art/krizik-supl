@@ -109,42 +109,89 @@ class WebFetcher:
         now_iso = datetime.now(PRAGUE_TZ).isoformat(timespec="seconds")
         self.last_fetch_at = now_iso
 
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "cs,en-US;q=0.7,en;q=0.3",
+        }
+
+        content: bytes | None = None
+        max_attempts = 3
+
+        async def _validate_request_hook(request: httpx.Request) -> None:
+            validate_web_url(str(request.url))
+
         try:
-            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-                resp = await client.get(url, headers={"User-Agent": "KrizikSuplViewer/1.0"})
-                validate_web_url(str(resp.url))
-                resp.raise_for_status()
-                content = resp.content
+            async with httpx.AsyncClient(
+                timeout=timeout,
+                follow_redirects=True,
+                event_hooks={"request": [_validate_request_hook]},
+            ) as client:
+                for attempt in range(1, max_attempts + 1):
+                    try:
+                        resp = await client.get(url, headers=headers)
+                        validate_web_url(str(resp.url))
+                        resp.raise_for_status()
+                        content = resp.content
+                        break
 
-        except httpx.HTTPStatusError as exc:
-            self.last_status = "ERROR"
-            status_code = exc.response.status_code if exc.response is not None else 0
-            self.consecutive_errors += 1
-            if status_code in (502, 503, 504):
-                self.last_error_message = f"Web Bakalářů je dočasně nedostupný (HTTP {status_code})."
-                self.logger.warning(
-                    "Web Bakalářů vrátil dočasný výpadek HTTP %d: %s (ponecháváme stávající data v DB)",
-                    status_code,
-                    exc,
-                )
-            else:
-                self.last_error_message = f"HTTP chyba {status_code}: {exc}"
-                self.logger.warning("HTTP chyba při stahování webu Bakalářů: %s", exc)
-            return False
+                    except httpx.HTTPStatusError as exc:
+                        status_code = exc.response.status_code if exc.response is not None else 0
+                        if status_code in (502, 503, 504) and attempt < max_attempts:
+                            delay = 1.0 if attempt == 1 else 2.0
+                            self.logger.warning(
+                                "Bakaláři vrátili HTTP %d, pokus %d/%d. Opakuji za %.1f s...",
+                                status_code,
+                                attempt,
+                                max_attempts,
+                                delay,
+                            )
+                            await asyncio.sleep(delay)
+                            continue
 
-        except httpx.TimeoutException as exc:
-            self.last_status = "ERROR"
-            self.consecutive_errors += 1
-            self.last_error_message = "Časový limit pro spojení s webem Bakalářů vypršel."
-            self.logger.warning("Timeout při spojení s webem Bakalářů: %s", exc)
-            return False
+                        self.last_status = "ERROR"
+                        self.consecutive_errors += 1
+                        if status_code in (502, 503, 504):
+                            self.last_error_message = (
+                                f"Web Bakalářů je dočasně nedostupný (HTTP {status_code})."
+                            )
+                            self.logger.warning(
+                                "Web Bakalářů vrátil dočasný výpadek HTTP %d: %s (ponecháváme stávající data v DB)",
+                                status_code,
+                                exc,
+                            )
+                        else:
+                            self.last_error_message = f"HTTP chyba {status_code}: {exc}"
+                            self.logger.warning("HTTP chyba při stahování webu Bakalářů: %s", exc)
+                        return False
 
-        except httpx.RequestError as exc:
-            self.last_status = "ERROR"
-            self.consecutive_errors += 1
-            self.last_error_message = f"Chyba síťového spojení: {exc}"
-            self.logger.warning("Chyba sítě při stahování webu Bakalářů: %s", exc)
-            return False
+                    except httpx.TimeoutException as exc:
+                        if attempt < max_attempts:
+                            delay = 1.0 if attempt == 1 else 2.0
+                            self.logger.warning(
+                                "Timeout při spojení s webem Bakalářů, pokus %d/%d. Opakuji za %.1f s...",
+                                attempt,
+                                max_attempts,
+                                delay,
+                            )
+                            await asyncio.sleep(delay)
+                            continue
+
+                        self.last_status = "ERROR"
+                        self.consecutive_errors += 1
+                        self.last_error_message = "Časový limit pro spojení s webem Bakalářů vypršel."
+                        self.logger.warning("Timeout při spojení s webem Bakalářů: %s", exc)
+                        return False
+
+                    except httpx.RequestError as exc:
+                        self.last_status = "ERROR"
+                        self.consecutive_errors += 1
+                        self.last_error_message = f"Chyba síťového spojení: {exc}"
+                        self.logger.warning("Chyba sítě při stahování webu Bakalářů: %s", exc)
+                        return False
 
         except Exception as exc:
             self.last_status = "ERROR"

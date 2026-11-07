@@ -3,6 +3,43 @@
 ## [Unreleased]
 
 ### Added
+- Reálný export rozvrhu pro pondělí 9. 11. 2026 z webu Bakalářů (`samples/zmeny_web_sample_2026-11-09.html`) nahrazující dřívější testovací mock data (3 nepřítomní pedagogové Ko, Pe, Sl, uzavřená místnost 7, 14 změn pro třídy 1A, 2C, 3A, 3C, 3D).
+- Nový unit test `TEST-WEB-PARSE-MONDAY-03` ověřující kompletní a bezchybné zpracování pondělního exportu.
+- Podpora pro formát vyučovacích hodin `les.` vedle `hod.` v regulárních výrazech `app/parser_web.py` (např. `4. les. 10:20 - 11:05`).
+- Křížová korelace nepřítomných a suplujících/odpadlých hodin v `app/parser_web.py` (`_correlate_teachers`) automaticky přiřazující zkratky učitelů (např. `Sl` -> `Sál Petr`).
+- Přepínač režimu zobrazení `.view-tabs` se dvěma volbami: výchozí „Tabulka“ (`#grid-view`) a „Old (Seznam karet)“ (`#cards-view`) pro původní vertikální seznam karet tříd s podporou plynulého automatického posunu (kiosk auto-scroll).
+- Klientská funkce `renderCards(day)`, `switchView(viewName)` a `renderViewTabs()` v `app/static/app.js` vykreslující strukturované karty `.group-card` po třídách s plným zněním organizačních poznámek striktně přes bezpečné DOM API bez `innerHTML`.
+- Nové testovací specifikace v `tests/test_web_and_anonymization.py`: `TEST-CLEAN-HEADER-NO-ONLINE-01`, `TEST-DEFAULT-VIEW-IS-GRID-01`, `TEST-SWITCH-TO-CARDS-VIEW-01`, `TEST-CARDS-VIEW-CONTENT-01`, `TEST-CARDS-FILTER-INTERACTION-01`, `TEST-NO-HIDDEN-NOTES-ANYWHERE-01` a `TEST-SOURCE-BADGE-CLEAN-LOAD-01`.
+
+### Removed
+- Odstraněn prvek `#connection-indicator` (zelená pulzující tečka a nápis Online) z hlavičky aplikace pro čistý a nerušený produkční vzhled.
+- Odstraněny statické textové placeholdery („Datum výpisu: načítám…“, „Poslední kontrola: —“, „Načítám zdroj…“, „Načítám rozvrh…“) z `index.html` a `app.js`.
+- Syntetický testovací vzorek `supl_cp1250_vymena.html` s mock daty pro pondělí byl přesunut ze sledované složky `samples/` do `tests/fixtures/`.
+
+### Changed
+- V režimu Kiosk (celá obrazovka) je přepínač pohledů automaticky skryt (`body.kiosk .view-tabs { display: none !important; }`).
+- Verzování assetů povýšeno na `styles.css?v=14` a `app.js?v=14` v šablonách i statickém exportu.
+- Aktualizován statický export `dist/` a přegenerována PDF dokumentace v `docs/`.
+
+### Changed
+- Odstraněno skrývání poznámek textem `[poznámka skryta]` v `app/anonymizer.py` (`sanitize_note`); organizační poznámky k rozvrhu ("supluje", "odpadá", "spojí", "změna", "přesun z...", "Souvislá praxe", "Exkurze") jsou zachovány v plném skutečném znění v intranetu i v anonymizovaném statickém exportu `dist/`.
+- Doplněn čas `Europe/Prague` do `exported_at_display` a `fetched_at` v `app/parser_web.py`.
+- Neutrální výchozí stav `#source-badge` v `app/static/index.html` a `dist/index.html` zabraňující probliknutí souborového zdroje před inicializací.
+- Navýšena verze stylů a skriptů na `?v=12` v HTML šablonách pro okamžité prolomení cache.
+- Kompletně regenerován statický export `dist/` s nulovým výskytem skrytých poznámek a přegenerována PDF dokumentace v `docs/`.
+
+### Added
+- Odolný retry mechanismus v `app/fetcher.py` (`WebFetcher.fetch_once`) s až 3 pokusy a exponenciální prodlevou (1.0 s, 2.0 s) pro dočasné výpadky (HTTP 502, 503, 504 a `TimeoutException`) a moderními hlavičkami prohlížeče.
+- Klientské funkce `formatTeacherWithCode` a `lookupTeacherCode` v `app/static/app.js` s obousměrným mapováním pro 55 pedagogů z `config.yaml` (`OFFICIAL_TEACHER_CODES`).
+- Zobrazení oficiálních zkratek u suplujících pedagogů v bloku `Suplující učitelé` (`extractSubstitutingTeachers`) ve tvaru `Jméno (Zk)` (např. `Bajerová Markéta (Bj)`).
+- Sada integračních a unit testů `TEST-FETCH-RETRY-01`, `TEST-FETCH-RETRY-FAIL-01`, `TEST-STORAGE-WEB-PRECEDENCE-01`, `TEST-TEACHER-ABBR-ABSENT-01`, `TEST-TEACHER-ABBR-SUBSTITUTING-01`, `TEST-TEACHER-ABBR-ANONYMIZED-01` a `TEST-STATIC-EXPORT-WEB-SOURCE-01`.
+
+### Changed
+- Aktivován `web_enabled: true` jako výchozí stav v `config.yaml` a `AppConfig` v `app/config.py`.
+- Odstraněna blokující podmínka `existing_exported > web_timestamp` v `app/database.py` (`save_web_day`), webový export pro daný den má autoritativní přednost před starším týdenním souborovým exportem.
+- Opravena logická chyba `indexOf < 0` v `app/static/app.js` pro pedagogy, jejichž příjmení začíná na zkratku (`Kodad Miloš (Ko)`, `Sobotová Dana (So)`, `Čermáková Irena (Če)`, `Fox Luděk (Fo)`).
+- Aktualizována databáze a statický export `dist/` s označením `data_source = 'web'` a přegenerována PDF dokumentace (`docs/`).
+
 - Integrace oficiálního adresáře 55 pedagogů VOŠ a SPŠE Františka Křižíka z `Učitelé_zkratky.xlsx` do konfigurace `teacher_codes`.
 - Samostatný webový parser `app/parser_web.py` (`parse_web_zmeny_html`) pro zpracování jednodenních exportů Bakalářů z `next/zmeny.aspx` včetně titulkových atributů `title` pedagogů a mřížek nepřítomností a změn.
 - Odolný asynchronní web fetcher `app/fetcher.py` (`WebFetcher`) s ochranou proti výpadkům Bakalářů (HTTP 503, 502, 500, timeouty), SSRF ochranou (striktní whitelist hostitele `klasifikace.skolakrizik.cz`) a manuálním triggerem `POST /api/fetch-web`.

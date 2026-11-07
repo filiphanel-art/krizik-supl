@@ -34,7 +34,7 @@ class AppConfig(BaseModel):
     upload_token: str = Field(default="")
     web_url: str = Field(default="https://klasifikace.skolakrizik.cz/next/zmeny.aspx")
     web_poll_interval_seconds: float = Field(default=300.0, ge=60.0)
-    web_enabled: bool = Field(default=False)
+    web_enabled: bool = Field(default=True)
 
 
 def _parse_bool(val: str) -> bool:

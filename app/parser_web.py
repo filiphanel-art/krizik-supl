@@ -24,6 +24,7 @@ from app.models import (
 from app.parser import (
     ParseError,
     _classify_change_type,
+    _correlate_teachers,
     _pair_moves_in_day,
     build_derived_teachers,
     detect_and_decode,
@@ -250,7 +251,7 @@ def parse_web_zmeny_html(
                     first_txt = _clean_cell_text(first_td)
                     if len(inner_tds) == 1 or first_td.get("colspan"):
                         m_action = re.match(
-                            r"^(\d{1,2})\.\s*-\s*(\d{1,2})\.\s*hod\s*(.+)$",
+                            r"^(\d{1,2})\.\s*-\s*(\d{1,2})\.\s*(?:hod|les)\.?\s*(.+)$",
                             first_txt,
                             re.IGNORECASE,
                         )
@@ -283,10 +284,12 @@ def parse_web_zmeny_html(
                         continue
 
                     # Standardní 7-sloupcový řádek
-                    m_hour = re.match(r"^(\d{1,2})\.\s*hod", first_txt, re.IGNORECASE)
+                    m_hour = re.match(r"^(\d{1,2})\.\s*(?:hod|les)\.?", first_txt, re.IGNORECASE)
                     if not m_hour:
                         m_hour_range = re.match(
-                            r"^(\d{1,2})\.\s*-\s*(\d{1,2})\.\s*hod", first_txt, re.IGNORECASE
+                            r"^(\d{1,2})\.\s*-\s*(\d{1,2})\.\s*(?:hod|les)\.?",
+                            first_txt,
+                            re.IGNORECASE,
                         )
                         if m_hour_range:
                             h_from = int(m_hour_range.group(1))
@@ -381,14 +384,16 @@ def parse_web_zmeny_html(
                         )
                     )
 
-    now_iso = datetime.now(PRAGUE_TZ).isoformat(timespec="seconds")
+    now_dt = datetime.now(PRAGUE_TZ)
+    now_iso = now_dt.isoformat(timespec="seconds")
+    exp_disp = f"{now_dt.day}. {now_dt.month}. {now_dt.year} {now_dt.hour:02d}:{now_dt.minute:02d}"
     day = ScheduleDay(
         date=date_str,
         day_name=day_name,
         week_label="",
         school_name=school_name,
         exported_at=now_iso,
-        exported_at_display=dt_parsed.strftime("%d. %m. %Y"),
+        exported_at_display=exp_disp,
         data_source="web",
         source_label="Web (klasifikace.skolakrizik.cz)",
         fetched_at=now_iso,
@@ -401,6 +406,9 @@ def parse_web_zmeny_html(
     )
 
     _pair_moves_in_day(day)
+    corr_codes, _ = _correlate_teachers([day])
+    for c, n in corr_codes.items():
+        teacher_dir.setdefault(c, n)
     day.derived_teachers = build_derived_teachers(day, teacher_dir)
 
     return ParseResult(

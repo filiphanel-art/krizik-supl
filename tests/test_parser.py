@@ -10,6 +10,7 @@ from app.models import ChangeType, TeacherHourStatus
 from app.parser import ParseError, detect_and_decode, parse_suplovani_html
 
 SAMPLES_DIR = Path(__file__).resolve().parent.parent / "samples"
+FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
 
 def test_parse_all_samples_in_directory() -> None:
@@ -136,7 +137,7 @@ def test_absent_teachers_grid_and_derived_teachers() -> None:
 
 def test_cp1250_encoding_and_diacritics() -> None:
     """Ověří správnou detekci cp1250 a zobrazení 'Křižík', 'Čermáková', 'Řehořová'."""
-    raw = (SAMPLES_DIR / "supl_cp1250_vymena.html").read_bytes()
+    raw = (FIXTURES_DIR / "supl_cp1250_vymena.html").read_bytes()
     res = parse_suplovani_html(raw, file_name="supl_cp1250_vymena.html")
 
     assert res.detected_encoding.lower() in ("cp1250", "windows-1250")
@@ -269,4 +270,33 @@ def test_web_parse_02() -> None:
     assert res.teacher_directory.get("Pl") == "Poul Richard"
     assert res.teacher_directory.get("Vl") == "Valtr Pavel"
     assert res.teacher_directory.get("Nz") == "Novák Zdeněk"
+
+
+def test_web_parse_monday_03() -> None:
+    """TEST-WEB-PARSE-MONDAY-03: Parsování reálného pondělního webového exportu 9. 11. 2026."""
+    from app.parser_web import parse_web_zmeny_html
+
+    raw = (SAMPLES_DIR / "zmeny_web_sample_2026-11-09.html").read_bytes()
+    res = parse_web_zmeny_html(raw)
+    assert len(res.days) == 1
+    day = res.days[0]
+    assert day.date == "2026-11-09"
+    assert day.day_name == "Pondělí"
+
+    # 3 nepřítomní pedagogové a jejich zkratky
+    assert len(day.absent_teachers) == 3
+    at_map = {at.teacher_full_name: at.teacher_code for at in day.absent_teachers}
+    assert at_map.get("Kodad Miloš") == "Ko"
+    assert at_map.get("Pleskačová Linda") == "Pe"
+    assert at_map.get("Sál Petr") == "Sl"
+
+    # Místnost 7 mimo provoz
+    assert len(day.closed_rooms) == 1
+    assert day.closed_rooms[0].room_name == "7"
+
+    # 14 změn v rozvrzích tříd (1A, 2C, 3A, 3C, 3D)
+    assert len(day.class_changes) == 14
+    assert len(day.unrecognized) == 0
+    classes = {ch.class_name for ch in day.class_changes}
+    assert classes == {"1A", "2C", "3A", "3C", "3D"}
 

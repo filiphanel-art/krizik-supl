@@ -15,11 +15,6 @@ from app.models import (
 )
 from app.parser import ACADEMIC_TITLES, normalize_teacher_full_name
 
-SAFE_NOTE_RE = re.compile(
-    r"^(?:(?:na|z)\s+\d{1,2}\.\s*hod|Souvislá praxe|Exkurze|Praxe|Sportovní kurz|Lyžařský kurz)$",
-    re.IGNORECASE,
-)
-
 
 def name_to_initials(name: str) -> str:
     """Převede 'Příjmení Jméno' nebo 'Titul Jméno Příjmení' na iniciály (např. 'V. P.')."""
@@ -52,18 +47,9 @@ def _anonymize_teacher_label(
     return name_to_initials(name)
 
 
-def sanitize_note(note: str, forbidden_tokens: set[str]) -> str:
-    """Odstraní případné osobní údaje z poznámky."""
-    if not note:
-        return ""
-    if SAFE_NOTE_RE.match(note.strip()):
-        return note.strip()
-    # Pokud poznámka obsahuje některé ze známých jmen/příjmení, nahradíme ji obecným textem
-    low = note.lower()
-    for tok in forbidden_tokens:
-        if len(tok) >= 3 and tok.lower() in low:
-            return "[poznámka skryta]"
-    return "[poznámka skryta]"
+def sanitize_note(note: str, forbidden_tokens: set[str] | None = None) -> str:
+    """Vrátí původní poznámku očištěnou o bílé znaky (poznámky jsou veřejné)."""
+    return note.strip() if note else ""
 
 
 def collect_name_tokens(day: ScheduleDay, code_to_name: dict[str, str]) -> set[str]:
@@ -229,6 +215,9 @@ def anonymize_schedule_day(
         school_name=day.school_name,
         exported_at=day.exported_at,
         exported_at_display=day.exported_at_display,
+        data_source=day.data_source,
+        source_label=day.source_label,
+        fetched_at=day.fetched_at,
         absent_classes=list(day.absent_classes),
         absent_teachers=anon_absent_teachers,
         closed_rooms=list(day.closed_rooms),

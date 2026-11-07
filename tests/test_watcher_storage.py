@@ -12,6 +12,7 @@ from app.database import Storage
 from app.watcher import FolderWatcher, is_safe_child_path
 
 SAMPLES_DIR = Path(__file__).resolve().parent.parent / "samples"
+FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
 
 def test_gradual_write_overwrite_and_delete(tmp_path: Path) -> None:
@@ -80,7 +81,7 @@ def test_gradual_write_overwrite_and_delete(tmp_path: Path) -> None:
 
     # 3) Přepsání druhým platným vzorkem (cp1250, 9. 11. 2026) -> přidá nový den a vyčistí chybový stav
     time.sleep(0.05)
-    cp1250_bytes = (SAMPLES_DIR / "supl_cp1250_vymena.html").read_bytes()
+    cp1250_bytes = (FIXTURES_DIR / "supl_cp1250_vymena.html").read_bytes()
     target_file.write_bytes(cp1250_bytes)
     assert watcher.scan_once() == 1
 

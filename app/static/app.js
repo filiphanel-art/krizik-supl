@@ -39,6 +39,137 @@
     OSTATNI: "Změna"
   };
 
+  const OFFICIAL_TEACHER_CODES = {
+    "Ba": "Blažek Martin",
+    "Be": "Bernard Pavel",
+    "Bh": "Bláha Martin",
+    "Bj": "Bajerová Markéta",
+    "Br": "Bernardová Radana",
+    "Bu": "Bureš Pavel",
+    "Bř": "Bařinka Lukáš",
+    "Dr": "Ďurčo Daniel",
+    "Dv": "Drchota Viktor",
+    "Fj": "Fojtík Filip",
+    "Fo": "Fox Luděk",
+    "He": "Hájek Jiří",
+    "Hf": "Hanel Filip",
+    "Hi": "Hildebrand Jan",
+    "Hr": "Hausner Jakub",
+    "Jo": "Jobek Tomáš",
+    "Kk": "Kulhánek Eduard",
+    "Ko": "Kodad Miloš",
+    "Kr": "Klener Vavřinec",
+    "Ks": "Klaudis Jaromír",
+    "Ku": "Kubečková Marta",
+    "Ky": "Kynčlová Alice",
+    "Kč": "Kudrnáč Michael",
+    "Kš": "Kestřánek Tomáš",
+    "Le": "Ledvina David",
+    "Lx": "Linx David",
+    "Ma": "Marešová Marie",
+    "Mk": "Mikeš Jan",
+    "Mt": "Maňák Tomáš",
+    "Mu": "Mudruňková Anna",
+    "Ne": "Netušil Prokop",
+    "Nz": "Novák Zdeněk",
+    "On": "Ondrušková Lucia",
+    "Oč": "Očenášková Marie",
+    "Pa": "Prýmková Ivana",
+    "Pe": "Pleskačová Linda",
+    "Pf": "Pfeifer Jan",
+    "Pk": "Prýmek Josef",
+    "Pl": "Poul Richard",
+    "Ra": "Rak Aleš",
+    "Rh": "Roušová Helena",
+    "Rt": "Rottová Renata",
+    "Ry": "Ryba Adam",
+    "Rš": "Roušová Olga",
+    "Sl": "Sál Petr",
+    "So": "Sobotová Dana",
+    "Sy": "Suchý Zbyněk",
+    "Ti": "Tichá Tereza",
+    "Vl": "Valtr Pavel",
+    "Vo": "Vondrášková Terezie",
+    "Če": "Čermáková Irena",
+    "Šb": "Šebková Blanka",
+    "Še": "Ševčík David",
+    "Ši": "Šimková Veronika",
+    "Št": "Šťastný Ondřej"
+  };
+
+  const NAME_TO_CODE = {};
+  Object.keys(OFFICIAL_TEACHER_CODES).forEach((code) => {
+    const fullName = OFFICIAL_TEACHER_CODES[code];
+    NAME_TO_CODE[fullName] = code;
+    NAME_TO_CODE[fullName.toLowerCase()] = code;
+    const parts = fullName.split(/\s+/);
+    if (parts.length === 2) {
+      const reversed = parts[1] + " " + parts[0];
+      NAME_TO_CODE[reversed] = code;
+      NAME_TO_CODE[reversed.toLowerCase()] = code;
+    }
+  });
+
+  function formatTeacherWithCode(fullName, code) {
+    const name = (fullName || "").trim();
+    const c = (code || "").trim();
+    if (!name) return c ? "(" + c + ")" : "";
+    if (!c) return name;
+    if (name.includes("(" + c + ")")) return name;
+    if (name === c) return name; // V anonymizovaném režimu, kde je jméno shodné se zkratkou
+    return name + " (" + c + ")";
+  }
+
+  function lookupTeacherCode(name, dayOrMap) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return "";
+
+    if (OFFICIAL_TEACHER_CODES[trimmed]) return trimmed;
+
+    const m = trimmed.match(/\(([^)]+)\)/);
+    if (m) return m[1].trim();
+
+    if (dayOrMap && typeof dayOrMap === "object") {
+      if (typeof dayOrMap.get === "function" && dayOrMap.has(trimmed)) {
+        return dayOrMap.get(trimmed);
+      }
+      if (dayOrMap[trimmed]) {
+        return dayOrMap[trimmed];
+      }
+      if (Array.isArray(dayOrMap.derived_teachers)) {
+        for (const dt of dayOrMap.derived_teachers) {
+          if (
+            dt.teacher_code &&
+            (dt.teacher_key === trimmed ||
+              dt.teacher_display === trimmed ||
+              dt.teacher_full_name === trimmed)
+          ) {
+            return dt.teacher_code;
+          }
+        }
+      }
+      if (Array.isArray(dayOrMap.absent_teachers)) {
+        for (const at of dayOrMap.absent_teachers) {
+          if (
+            at.teacher_code &&
+            (at.teacher_full_name === trimmed || at.teacher_normalized_name === trimmed)
+          ) {
+            return at.teacher_code;
+          }
+        }
+      }
+    }
+
+    if (NAME_TO_CODE[trimmed]) return NAME_TO_CODE[trimmed];
+    if (NAME_TO_CODE[trimmed.toLowerCase()]) return NAME_TO_CODE[trimmed.toLowerCase()];
+
+    const cleaned = trimmed.replace(/^(?:Mgr\.|Ing\.|Bc\.|PaedDr\.|RNDr\.|PhDr\.|DiS\.)\s+/i, "").trim();
+    if (NAME_TO_CODE[cleaned]) return NAME_TO_CODE[cleaned];
+    if (NAME_TO_CODE[cleaned.toLowerCase()]) return NAME_TO_CODE[cleaned.toLowerCase()];
+
+    return "";
+  }
+
   function svgIcon(name) {
     const NS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(NS, "svg");
@@ -66,6 +197,7 @@
     status: null,
     selectedEntity: "",
     searchQuery: "",
+    activeView: "grid",
     isStaticExport: typeof window !== "undefined" ? Boolean(window.__STATIC_EXPORT__) : false,
     isOffline: false
   };
@@ -82,15 +214,17 @@
         bannerStaleText: document.getElementById("banner-stale-text"),
         bannerOffline: document.getElementById("banner-offline"),
         dateTabs: document.getElementById("date-tabs"),
+        viewTabs: document.getElementById("view-tabs"),
+        btnViewGrid: document.getElementById("btn-view-grid"),
+        btnViewCards: document.getElementById("btn-view-cards"),
         entitySelect: document.getElementById("entity-select"),
         searchInput: document.getElementById("search-input"),
         btnClearFilter: document.getElementById("btn-clear-filter"),
         dayHeading: document.getElementById("day-heading"),
         sourceBadge: document.getElementById("source-badge"),
         sourceBadgeText: document.getElementById("source-badge-text"),
-        connectionIndicator: document.getElementById("connection-indicator"),
-        connectionText: document.getElementById("connection-text"),
-        gridView: document.getElementById("grid-view")
+        gridView: document.getElementById("grid-view"),
+        cardsView: document.getElementById("cards-view")
       }
     : {};
 
@@ -195,6 +329,74 @@
     }
   }
 
+  function formatDateTimeCzech(isoString, fallbackDisplay) {
+    if (isoString && typeof isoString === "string") {
+      const mIso = isoString.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{1,2}):(\d{2})/);
+      if (mIso) {
+        const y = mIso[1];
+        const mo = parseInt(mIso[2], 10);
+        const d = parseInt(mIso[3], 10);
+        const h = mIso[4];
+        const min = mIso[5];
+        return d + ". " + mo + ". " + y + " v " + h + ":" + min;
+      }
+    }
+    if (fallbackDisplay && typeof fallbackDisplay === "string") {
+      const trimmed = fallbackDisplay.trim();
+      const mFb = trimmed.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})(?:\s+(?:v\s+)?(\d{1,2}:\d{2}))?$/);
+      if (mFb) {
+        const d = parseInt(mFb[1], 10);
+        const mo = parseInt(mFb[2], 10);
+        const y = mFb[3];
+        const time = mFb[4];
+        if (time) {
+          return d + ". " + mo + ". " + y + " v " + time;
+        }
+        return d + ". " + mo + ". " + y;
+      }
+      if (trimmed && trimmed !== "—") {
+        return trimmed;
+      }
+    }
+    return "";
+  }
+
+  function formatSourceBadgeText(day) {
+    if (!day) return "";
+    const isWeb =
+      day.data_source === "web" ||
+      (day.source_label && day.source_label.toLowerCase().includes("web"));
+    if (isWeb) {
+      const srcLabel = day.source_label || "Web (klasifikace.skolakrizik.cz)";
+      const timeStr = formatDateTimeCzech(day.fetched_at || day.exported_at, day.exported_at_display);
+      return "Zdroj: " + srcLabel + (timeStr ? " · Načteno " + timeStr : "");
+    } else {
+      const srcLabel = day.source_label || "Soubor (Bakaláři export)";
+      const timeStr = formatDateTimeCzech(day.exported_at, day.exported_at_display);
+      return "Zdroj: " + srcLabel + (timeStr ? " · Export " + timeStr : "");
+    }
+  }
+
+  function updateSourceBadge(day) {
+    if (!els.sourceBadge) return;
+    if (!day) {
+      els.sourceBadge.classList.add("hidden");
+      if (els.sourceBadgeText) els.sourceBadgeText.textContent = "";
+      return;
+    }
+    els.sourceBadge.classList.remove("hidden");
+    const isWeb =
+      day.data_source === "web" ||
+      (day.source_label && day.source_label.toLowerCase().includes("web"));
+    els.sourceBadge.className = "source-badge " + (isWeb ? "source-web" : "source-file");
+    const text = formatSourceBadgeText(day);
+    if (els.sourceBadgeText) {
+      els.sourceBadgeText.textContent = text;
+    } else {
+      els.sourceBadge.textContent = text;
+    }
+  }
+
   function renderBannersAndHeader() {
     const day = state.dayData;
     const st = state.status || {};
@@ -206,15 +408,36 @@
     const expDisp =
       (day && day.exported_at_display) ||
       (st.last_success && st.last_success.exported_at) ||
-      "—";
-    els.exportedAtLabel.textContent = "Výpis: " + expDisp;
+      "";
+
+    const isWeb =
+      day &&
+      (day.data_source === "web" ||
+        (day.source_label && day.source_label.toLowerCase().includes("web")));
+    const timeStr = formatDateTimeCzech(
+      isWeb ? (day && (day.fetched_at || day.exported_at)) : (day && day.exported_at),
+      expDisp
+    );
+    if (els.exportedAtLabel) {
+      if (day || expDisp) {
+        els.exportedAtLabel.textContent = (isWeb ? "Načteno z webu: " : "Výpis: ") + (timeStr || expDisp);
+      } else {
+        els.exportedAtLabel.textContent = "";
+      }
+    }
 
     const nowStr = new Date().toLocaleTimeString("cs-CZ", {
       timeZone: "Europe/Prague",
       hour: "2-digit",
       minute: "2-digit"
     });
-    els.updatedAtLabel.textContent = "Kontrola: " + nowStr;
+    if (els.updatedAtLabel) {
+      if (day || state.status) {
+        els.updatedAtLabel.textContent = "Kontrola: " + nowStr;
+      } else {
+        els.updatedAtLabel.textContent = "";
+      }
+    }
 
     if (st.has_parse_error) {
       els.bannerParseError.classList.remove("hidden");
@@ -243,41 +466,7 @@
       els.bannerOffline.classList.add("hidden");
     }
 
-    if (els.connectionIndicator) {
-      if (state.isOffline) {
-        els.connectionIndicator.className = "connection-indicator offline";
-        els.connectionIndicator.title = "Stav spojení: Offline";
-        if (els.connectionText) els.connectionText.textContent = "Offline";
-      } else {
-        els.connectionIndicator.className = "connection-indicator online";
-        els.connectionIndicator.title = "Stav spojení: Online";
-        if (els.connectionText) els.connectionText.textContent = "Online";
-      }
-    }
-
-    if (els.sourceBadge) {
-      const isWeb =
-        day &&
-        (day.data_source === "web" ||
-          (day.source_label && day.source_label.toLowerCase().includes("web")));
-      if (isWeb) {
-        els.sourceBadge.className = "source-badge source-web";
-        const srcLabel = (day && day.source_label) || "Web (klasifikace.skolakrizik.cz)";
-        if (els.sourceBadgeText) {
-          els.sourceBadgeText.textContent = "Zdroj: " + srcLabel;
-        } else {
-          els.sourceBadge.textContent = "Zdroj: " + srcLabel;
-        }
-      } else {
-        els.sourceBadge.className = "source-badge source-file";
-        const srcLabel = (day && day.source_label) || "Soubor (Bakaláři export)";
-        if (els.sourceBadgeText) {
-          els.sourceBadgeText.textContent = "Zdroj: " + srcLabel;
-        } else {
-          els.sourceBadge.textContent = "Zdroj: " + srcLabel;
-        }
-      }
-    }
+    updateSourceBadge(day);
   }
 
   function renderDateTabs() {
@@ -292,6 +481,26 @@
       btn.setAttribute("role", "tab");
       btn.setAttribute("aria-selected", d.date === state.selectedDate ? "true" : "false");
       btn.addEventListener("click", () => {
+        // Okamžitá aktivace záložky bez prodlevy
+        const allTabs = els.dateTabs.querySelectorAll
+          ? els.dateTabs.querySelectorAll(".date-tab")
+          : (els.dateTabs.children || []);
+        for (let i = 0; i < allTabs.length; i++) {
+          if (allTabs[i].classList && allTabs[i].classList.remove) {
+            allTabs[i].classList.remove("active");
+          }
+          if (allTabs[i].setAttribute) {
+            allTabs[i].setAttribute("aria-selected", "false");
+          }
+        }
+        if (btn.classList && btn.classList.add) {
+          btn.classList.add("active");
+        }
+        btn.setAttribute("aria-selected", "true");
+
+        // Okamžitá změna třídy i textu štítku s časem (0 ms prodleva)
+        updateSourceBadge(d);
+
         state.selectedDate = d.date;
         loadData(d.date, false);
       });
@@ -374,8 +583,8 @@
     return parts.join(", ") + " hod";
   }
 
-  function extractSubstitutingTeachers(changes) {
-    if (!Array.isArray(changes)) return [];
+  function extractSubstitutingTeachers(changes, dayOrMap) {
+    if (!Array.isArray(changes) || changes.length === 0) return [];
     const teacherHoursMap = new Map();
     changes.forEach((ch) => {
       if (!ch || !ch.sub_teacher) return;
@@ -404,8 +613,11 @@
 
     return sortedTeachers.map((teacher) => {
       const hours = Array.from(teacherHoursMap.get(teacher));
+      const code = lookupTeacherCode(teacher, dayOrMap);
       return {
         teacher: teacher,
+        teacherCode: code,
+        displayName: formatTeacherWithCode(teacher, code),
         hoursText: formatHoursList(hours)
       };
     });
@@ -434,10 +646,9 @@
       tPills.appendChild(el("span", "strip-empty", "žádní"));
     } else {
       absT.forEach((a) => {
-        const name =
-          a.teacher_code && a.teacher_full_name && a.teacher_full_name.indexOf(a.teacher_code) < 0
-            ? a.teacher_full_name + " (" + a.teacher_code + ")"
-            : (a.teacher_full_name || a.teacher_code || "");
+        const rawName = a.teacher_full_name || a.teacher_normalized_name || a.teacher_code || "";
+        const code = a.teacher_code || lookupTeacherCode(rawName, day);
+        const name = formatTeacherWithCode(rawName, code);
         const hours = Object.keys(a.hours || {}).map(Number);
         tPills.appendChild(createTeacherPill(name, formatHoursList(hours), "absent"));
       });
@@ -449,12 +660,12 @@
     const sBox = el("div", "strip-box strip-sub-teachers");
     sBox.appendChild(el("div", "strip-header", "Suplující učitelé:"));
     const sPills = el("div", "strip-pills");
-    const subTeachers = extractSubstitutingTeachers((day && day.class_changes) || []);
+    const subTeachers = extractSubstitutingTeachers((day && day.class_changes) || [], day);
     if (subTeachers.length === 0) {
       sPills.appendChild(el("span", "strip-empty", "žádní"));
     } else {
       subTeachers.forEach((st) => {
-        sPills.appendChild(createTeacherPill(st.teacher, st.hoursText, "sub"));
+        sPills.appendChild(createTeacherPill(st.displayName || st.teacher, st.hoursText, "sub"));
       });
     }
     sBox.appendChild(sPills);
@@ -473,7 +684,10 @@
     if (ch.room) top.appendChild(el("span", "gcell-room", "(" + ch.room + ")"));
     box.appendChild(top);
     const parts = [];
-    if (ch.sub_teacher) parts.push(ch.sub_teacher);
+    if (ch.sub_teacher) {
+      const code = lookupTeacherCode(ch.sub_teacher, state.dayData);
+      parts.push(formatTeacherWithCode(ch.sub_teacher, code));
+    }
     if (ch.orig_teacher_code && !ch.sub_teacher) parts.push("(" + ch.orig_teacher_code + ")");
     if (ch.note && ch.change_type !== "CELODENNI_AKCE") parts.push(ch.note);
     if (parts.length) box.appendChild(el("div", "gcell-bottom", parts.join(" · ")));
@@ -481,7 +695,9 @@
       formatHourRange(ch.hour_from, ch.hour_to),
       SHORT[ch.change_type],
       ch.subject,
-      ch.sub_teacher,
+      ch.sub_teacher
+        ? formatTeacherWithCode(ch.sub_teacher, lookupTeacherCode(ch.sub_teacher, state.dayData))
+        : "",
       ch.orig_teacher_code ? "původně (" + ch.orig_teacher_code + ")" : "",
       ch.room ? "učebna " + ch.room : "",
       ch.note
@@ -539,7 +755,9 @@
       260
     );
     const fs = Math.max(10.5, Math.min(14, avail / rowsList.length / 2.75));
-    root.style.setProperty("--gfs", fs.toFixed(1) + "px");
+    if (root && root.style && typeof root.style.setProperty === "function") {
+      root.style.setProperty("--gfs", fs.toFixed(1) + "px");
+    }
 
     const tbl = el("table", "big-grid");
     const thead = el("thead");
@@ -601,6 +819,165 @@
     root.appendChild(legend);
   }
 
+  function renderCards(day) {
+    if (!els.cardsView) return;
+    const root = els.cardsView;
+    root.replaceChildren();
+
+    const strip = renderGridStrip(day);
+    root.appendChild(strip);
+
+    if (!day) {
+      root.appendChild(el("div", "section-block", "Žádná data suplování nejsou momentálně k dispozici."));
+      return;
+    }
+
+    const allChanges = (day.class_changes || []).filter(changeMatchesSearch);
+    const classes = new Set();
+    allChanges.forEach((c) => classes.add(c.class_name));
+    if (!state.searchQuery) {
+      (day.absent_classes || []).forEach((c) => classes.add(c.class_name));
+    }
+
+    const rowsList = Array.from(classes)
+      .filter((c) => !state.selectedEntity || c === state.selectedEntity)
+      .sort((a, b) => a.localeCompare(b, "cs", { numeric: true }));
+
+    if (rowsList.length === 0) {
+      root.appendChild(el("div", "section-block", "Žádné změny v rozvrhu neodpovídají zadanému filtru."));
+      return;
+    }
+
+    const container = el("div", "cards-container");
+
+    rowsList.forEach((cls) => {
+      const card = el("article", "group-card");
+
+      const clsChanges = allChanges
+        .filter((c) => c.class_name === cls)
+        .sort((a, b) => a.hour_from - b.hour_from || a.hour_to - b.hour_to);
+      const absCls = (day.absent_classes || []).find((a) => a.class_name === cls);
+
+      const header = el("div", "group-card-header");
+      const title = el("h3", "group-card-title", "Třída " + cls);
+      header.appendChild(title);
+
+      const count = clsChanges.length;
+      let countText = count + " ";
+      if (count === 1) countText += "změna";
+      else if (count >= 2 && count <= 4) countText += "změny";
+      else countText += "změn";
+      if (absCls && count === 0) countText = "akce";
+      header.appendChild(el("span", "group-card-badge", countText));
+      card.appendChild(header);
+
+      const itemsList = el("div", "group-card-items");
+
+      if (absCls && (!clsChanges.length || Object.keys(absCls.hours || {}).length > 0)) {
+        const hKeys = Object.keys(absCls.hours || {});
+        if (hKeys.length > 0 && !clsChanges.some((c) => c.change_type === "CELODENNI_AKCE")) {
+          const item = el("div", "group-card-item badge-CELODENNI_AKCE");
+          const iHeader = el("div", "item-header");
+          const b = el("span", "badge badge-CELODENNI_AKCE");
+          b.appendChild(svgIcon("calendar"));
+          b.appendChild(el("span", "", "Akce"));
+          iHeader.appendChild(b);
+          iHeader.appendChild(el("span", "item-hour", formatHoursList(hKeys.map(Number))));
+          item.appendChild(iHeader);
+          const iDetail = el("div", "item-detail");
+          const firstVal = absCls.hours[hKeys[0]];
+          iDetail.appendChild(el("span", "item-desc", "Nepřítomna (" + firstVal + ")"));
+          item.appendChild(iDetail);
+          itemsList.appendChild(item);
+        }
+      }
+
+      clsChanges.forEach((ch) => {
+        const item = el("div", "group-card-item badge-" + ch.change_type);
+        const iHeader = el("div", "item-header");
+
+        const meta = BADGE_META[ch.change_type] || BADGE_META.OSTATNI;
+        const b = el("span", "badge badge-" + ch.change_type);
+        b.appendChild(svgIcon(meta.icon));
+        b.appendChild(el("span", "", SHORT[ch.change_type] || "Změna"));
+        iHeader.appendChild(b);
+
+        iHeader.appendChild(el("span", "item-hour", formatHourRange(ch.hour_from, ch.hour_to)));
+        if (ch.subject) iHeader.appendChild(el("span", "item-subject", ch.subject));
+        if (ch.group_name) iHeader.appendChild(el("span", "item-group", ch.group_name));
+        if (ch.room) iHeader.appendChild(el("span", "item-room", "(" + ch.room + ")"));
+        item.appendChild(iHeader);
+
+        const details = [];
+        if (ch.sub_teacher) {
+          const code = lookupTeacherCode(ch.sub_teacher, day);
+          details.push("Supluje: " + formatTeacherWithCode(ch.sub_teacher, code));
+        } else if (ch.orig_teacher_code) {
+          details.push("Původně: (" + ch.orig_teacher_code + ")");
+        }
+        if (ch.note) {
+          details.push(ch.note);
+        }
+
+        if (details.length > 0) {
+          const iDetail = el("div", "item-detail");
+          details.forEach((dText) => {
+            iDetail.appendChild(el("span", "item-desc", dText));
+          });
+          item.appendChild(iDetail);
+        }
+
+        itemsList.appendChild(item);
+      });
+
+      card.appendChild(itemsList);
+      container.appendChild(card);
+    });
+
+    root.appendChild(container);
+  }
+
+  function switchView(viewName) {
+    if (viewName !== "grid" && viewName !== "cards") return;
+    state.activeView = viewName;
+    kiosk.pos = 0;
+    setScrollTop(0);
+    renderAll();
+  }
+
+  function renderViewTabs() {
+    if (els.btnViewGrid) {
+      const isGrid = state.activeView === "grid";
+      if (els.btnViewGrid.classList) {
+        if (typeof els.btnViewGrid.classList.toggle === "function") {
+          els.btnViewGrid.classList.toggle("active", isGrid);
+        } else if (isGrid) {
+          els.btnViewGrid.classList.add("active");
+        } else {
+          els.btnViewGrid.classList.remove("active");
+        }
+      }
+      if (typeof els.btnViewGrid.setAttribute === "function") {
+        els.btnViewGrid.setAttribute("aria-selected", isGrid ? "true" : "false");
+      }
+    }
+    if (els.btnViewCards) {
+      const isCards = state.activeView === "cards";
+      if (els.btnViewCards.classList) {
+        if (typeof els.btnViewCards.classList.toggle === "function") {
+          els.btnViewCards.classList.toggle("active", isCards);
+        } else if (isCards) {
+          els.btnViewCards.classList.add("active");
+        } else {
+          els.btnViewCards.classList.remove("active");
+        }
+      }
+      if (typeof els.btnViewCards.setAttribute === "function") {
+        els.btnViewCards.setAttribute("aria-selected", isCards ? "true" : "false");
+      }
+    }
+  }
+
   // Režim celé obrazovky s plynulým automatickým posunem nahoru a dolů
   const kiosk = {
     pos: 0,
@@ -617,31 +994,39 @@
 
   function getScrollTop() {
     return (
-      window.scrollY ||
-      document.documentElement.scrollTop ||
-      document.body.scrollTop ||
+      (typeof window !== "undefined" && window.scrollY) ||
+      (typeof document !== "undefined" && document.documentElement && document.documentElement.scrollTop) ||
+      (typeof document !== "undefined" && document.body && document.body.scrollTop) ||
       0
     );
   }
 
   function setScrollTop(y) {
     const target = Math.round(y);
-    window.scrollTo(0, target);
-    if (document.scrollingElement) document.scrollingElement.scrollTop = target;
-    document.documentElement.scrollTop = target;
-    document.body.scrollTop = target;
+    if (typeof window !== "undefined" && window.scrollTo) window.scrollTo(0, target);
+    if (typeof document !== "undefined") {
+      if (document.scrollingElement) document.scrollingElement.scrollTop = target;
+      if (document.documentElement) document.documentElement.scrollTop = target;
+      if (document.body) document.body.scrollTop = target;
+    }
   }
 
   function renderAll() {
     const keepScroll = getScrollTop();
     renderBannersAndHeader();
     renderDateTabs();
+    renderViewTabs();
     populateEntityFilter();
 
     const day = state.dayData;
     if (!day) {
-      els.dayHeading.textContent = "Žádná data suplování nejsou momentálně k dispozici.";
-      els.gridView.replaceChildren();
+      if (state.status) {
+        els.dayHeading.textContent = "Žádná data suplování nejsou momentálně k dispozici.";
+      } else {
+        els.dayHeading.textContent = "";
+      }
+      if (els.gridView) els.gridView.replaceChildren();
+      if (els.cardsView) els.cardsView.replaceChildren();
       return;
     }
 
@@ -653,7 +1038,20 @@
       els.dayHeading.appendChild(el("span", "week-badge", day.week_label));
     }
 
-    renderGrid(day);
+    if (state.activeView === "cards") {
+      if (els.gridView) els.gridView.classList.add("hidden");
+      if (els.cardsView) {
+        els.cardsView.classList.remove("hidden");
+        renderCards(day);
+      }
+    } else {
+      if (els.cardsView) els.cardsView.classList.add("hidden");
+      if (els.gridView) {
+        els.gridView.classList.remove("hidden");
+        renderGrid(day);
+      }
+    }
+
     if (kiosk.active) setScrollTop(keepScroll);
   }
 
@@ -783,23 +1181,35 @@
       });
     }
 
+    if (els.btnViewGrid) {
+      els.btnViewGrid.addEventListener("click", () => switchView("grid"));
+    }
+
+    if (els.btnViewCards) {
+      els.btnViewCards.addEventListener("click", () => switchView("cards"));
+    }
+
     if (btnFs) btnFs.addEventListener("click", () => (kiosk.active ? stopKiosk() : startKiosk()));
     if (btnKioskExit) btnKioskExit.addEventListener("click", stopKiosk);
-    document.addEventListener("fullscreenchange", () => {
-      if (!document.fullscreenElement && kiosk.active) stopKiosk();
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") stopKiosk();
-    });
-    ["wheel", "touchstart"].forEach((evt) =>
-      window.addEventListener(
-        evt,
-        () => {
-          if (kiosk.active) kiosk.pauseUntil = performance.now() + 6000;
-        },
-        { passive: true }
-      )
-    );
+    if (document.addEventListener) {
+      document.addEventListener("fullscreenchange", () => {
+        if (!document.fullscreenElement && kiosk.active) stopKiosk();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") stopKiosk();
+      });
+    }
+    if (typeof window !== "undefined" && window.addEventListener) {
+      ["wheel", "touchstart"].forEach((evt) =>
+        window.addEventListener(
+          evt,
+          () => {
+            if (kiosk.active) kiosk.pauseUntil = performance.now() + 6000;
+          },
+          { passive: true }
+        )
+      );
+    }
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -816,6 +1226,18 @@
     window.extractSubstitutingTeachers = extractSubstitutingTeachers;
     window.createTeacherPill = createTeacherPill;
     window.renderGridStrip = renderGridStrip;
+    window.formatTeacherWithCode = formatTeacherWithCode;
+    window.lookupTeacherCode = lookupTeacherCode;
+    window.OFFICIAL_TEACHER_CODES = OFFICIAL_TEACHER_CODES;
+    window.formatDateTimeCzech = formatDateTimeCzech;
+    window.formatSourceBadgeText = formatSourceBadgeText;
+    window.updateSourceBadge = updateSourceBadge;
+    window.switchView = switchView;
+    window.renderCards = renderCards;
+    window.renderViewTabs = renderViewTabs;
+    window.renderAll = renderAll;
+    window.state = state;
+    window.els = els;
   }
 
   if (typeof module !== "undefined" && module.exports) {
@@ -823,7 +1245,19 @@
       formatHoursList,
       extractSubstitutingTeachers,
       createTeacherPill,
-      renderGridStrip
+      renderGridStrip,
+      formatTeacherWithCode,
+      lookupTeacherCode,
+      OFFICIAL_TEACHER_CODES,
+      formatDateTimeCzech,
+      formatSourceBadgeText,
+      updateSourceBadge,
+      switchView,
+      renderCards,
+      renderViewTabs,
+      renderAll,
+      state,
+      els
     };
   }
 })();

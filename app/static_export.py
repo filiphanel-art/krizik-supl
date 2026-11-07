@@ -45,7 +45,17 @@ def export_static_site(
     ):
         src = STATIC_SRC_DIR / asset
         if src.is_file():
-            shutil.copy2(src, output_dir / asset)
+            if asset == "app.js":
+                js_content = src.read_text(encoding="utf-8")
+                # V anonymizovaném statickém exportu nesmí být žádná plná jména pedagogů (GDPR / F7)
+                js_content = re.sub(
+                    r"const OFFICIAL_TEACHER_CODES = \{[\s\S]*?\};",
+                    "const OFFICIAL_TEACHER_CODES = {};",
+                    js_content,
+                )
+                (output_dir / asset).write_text(js_content, encoding="utf-8")
+            else:
+                shutil.copy2(src, output_dir / asset)
 
     # Vytvoř static-mode.js a uprav index.html pro načtení static-mode.js před app.js
     (output_dir / "static-mode.js").write_text(

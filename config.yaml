@@ -40,7 +40,7 @@ admin_allowed_cidrs:
 # Web fetcher pro online zmeny.aspx (klasifikace.skolakrizik.cz)
 web_url: "https://klasifikace.skolakrizik.cz/next/zmeny.aspx"
 web_poll_interval_seconds: 300.0
-web_enabled: false
+web_enabled: true
 
 # Oficiální slovník zkratek učitelů (Učitelé_zkratky.xlsx - 55 pedagogů)
 teacher_codes:

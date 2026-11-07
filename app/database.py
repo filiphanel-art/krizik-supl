@@ -247,6 +247,16 @@ class Storage:
 
             # Uložení jednotlivých dnů (přepíše předchozí verzi téhož dne)
             for day in result.days:
+                existing = cur.execute(
+                    "SELECT data_source, exported_at, fetched_at FROM schedule_days WHERE date = ?",
+                    (day.date,),
+                ).fetchone()
+                if (day.data_source != "web") and existing and str(existing["data_source"] or "") == "web":
+                    web_ts = str(existing["fetched_at"] or existing["exported_at"] or "")
+                    file_ts = str(day.exported_at or result.exported_at or "")
+                    if not (file_ts and web_ts and file_ts > web_ts):
+                        continue
+
                 cur.execute("DELETE FROM schedule_days WHERE date = ?", (day.date,))
                 cur.execute(
                     """
@@ -254,7 +264,7 @@ class Storage:
                         date, day_name, week_label, school_name,
                         exported_at, exported_at_display, updated_at, source_import_id,
                         data_source, source_label, fetched_at, source_hash
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'file', 'Soubor (Bakaláři export)', '', ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         day.date,
@@ -265,6 +275,9 @@ class Storage:
                         day.exported_at_display,
                         now_iso,
                         import_id,
+                        day.data_source or "file",
+                        day.source_label or "Soubor (Bakaláři export)",
+                        day.fetched_at or "",
                         file_hash,
                     ),
                 )
@@ -395,29 +408,12 @@ class Storage:
     def save_web_day(self, day: ScheduleDay, source_hash: str) -> bool:
         """Uloží jediný den z webu (hybridní slučování).
 
-        Pokud stávající den pochází ze souboru a je novější než web, soubor má přednost.
-        V opačném případě aktualizuje výhradně tento 1 den a ostatní dny týdne ponechává nedotčené.
+        Webový import zmeny.aspx je pro daný den autoritativním zdrojem v reálném čase.
+        Aktualizuje výhradně tento 1 den a ostatní dny týdne ponechává nedotčené.
         """
         now_iso = datetime.now(PRAGUE_TZ).isoformat(timespec="seconds")
         with self._connect() as conn:
             cur = conn.cursor()
-            existing = cur.execute(
-                "SELECT data_source, exported_at, fetched_at FROM schedule_days WHERE date = ?",
-                (day.date,),
-            ).fetchone()
-
-            if existing:
-                existing_source = str(existing["data_source"] or "file")
-                existing_exported = str(existing["exported_at"] or "")
-                web_timestamp = day.fetched_at or day.exported_at or now_iso
-                if (
-                    existing_source == "file"
-                    and existing_exported
-                    and web_timestamp
-                    and existing_exported > web_timestamp
-                ):
-                    return False
-
             # Smaže výhradně tento 1 daný den
             cur.execute("DELETE FROM schedule_days WHERE date = ?", (day.date,))
 

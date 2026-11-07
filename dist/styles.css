@@ -213,10 +213,45 @@ body {
 }
 
 .date-tab:focus-visible,
+.view-tab:focus-visible,
 .filter-select:focus-visible,
 .filter-input:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* Přepínač zobrazení: Tabulka vs Old (Seznam karet) */
+.view-tabs {
+  display: inline-flex;
+  background: #f1f5f9;
+  padding: 2px;
+  border-radius: 0.45rem;
+  border: 1px solid var(--border-color);
+  gap: 2px;
+}
+
+.view-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.28rem 0.65rem;
+  border-radius: 0.35rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-tab:hover {
+  color: var(--text-main);
+  background: #e2e8f0;
+}
+
+.view-tab.active {
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .inline-filter {
@@ -579,6 +614,10 @@ body.kiosk .day-heading {
   font-size: 1.25rem;
 }
 
+body.kiosk .view-tabs {
+  display: none !important;
+}
+
 body.kiosk .container {
   max-width: 1920px;
 }
@@ -713,5 +752,156 @@ body.kiosk .container {
   background: #e8f5e9;
   color: #1b5e20;
   border: 1px solid #a5d6a7;
+}
+
+/* Seznam karet tříd (Old režim zobrazení) */
+.cards-view {
+  margin-top: 0.25rem;
+}
+
+.cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .cards-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.group-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0.55rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+}
+
+.group-card-header {
+  background: #f8fafc;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.45rem 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.group-card-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.group-card-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 1rem;
+  background: #e2e8f0;
+  color: var(--text-muted);
+}
+
+.group-card-items {
+  padding: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  flex: 1;
+}
+
+.group-card-item {
+  border-radius: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border-color);
+  font-size: 0.86rem;
+  background: #f8fafc;
+  border-left-width: 4px;
+}
+
+.group-card-item.badge-SUPLOVANI {
+  border-left-color: var(--supl-border);
+  background: #f0f7ff;
+}
+
+.group-card-item.badge-ODPADA {
+  border-left-color: var(--odpada-border);
+  background: #fff5f5;
+}
+
+.group-card-item.badge-SPOJENO {
+  border-left-color: var(--spojeno-border);
+  background: #faf5ff;
+}
+
+.group-card-item.badge-ZMENA_UCEBNY {
+  border-left-color: var(--ucebna-border);
+  background: #fffbeb;
+}
+
+.group-card-item.badge-PRESUN_NA,
+.group-card-item.badge-PRESUN_Z {
+  border-left-color: var(--presun-border);
+  background: #f0fdfa;
+}
+
+.group-card-item.badge-NAVIC,
+.group-card-item.badge-VYMENA {
+  border-left-color: var(--navic-border);
+  background: #f0fdf4;
+}
+
+.group-card-item.badge-CELODENNI_AKCE,
+.group-card-item.badge-OSTATNI {
+  border-left-color: var(--akce-border);
+  background: #f1f5f9;
+}
+
+.item-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+
+.item-hour {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.item-subject {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.item-group {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.item-room {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.item-detail {
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+}
+
+.item-detail .item-desc {
+  background: rgba(0, 0, 0, 0.04);
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
 }
 
