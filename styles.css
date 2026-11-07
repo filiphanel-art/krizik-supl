@@ -220,7 +220,7 @@ body {
   outline-offset: 2px;
 }
 
-/* Přepínač zobrazení: Tabulka vs Old (Seznam karet) */
+/* Přepínač zobrazení: Tabulka vs Přehled po třídách */
 .view-tabs {
   display: inline-flex;
   background: #f1f5f9;
@@ -754,7 +754,7 @@ body.kiosk .container {
   border: 1px solid #a5d6a7;
 }
 
-/* Seznam karet tříd (Old režim zobrazení) */
+/* Seznam karet tříd (Přehled po třídách) */
 .cards-view {
   margin-top: 0.25rem;
 }
