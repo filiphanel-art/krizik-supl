@@ -6,7 +6,7 @@
       "week_label": "2. týden",
       "exported_at": "2026-11-05T08:26:00+01:00",
       "exported_at_display": "5. 11. 2026 08:26",
-      "updated_at": "2026-11-07T17:39:08+01:00",
+      "updated_at": "2026-11-07T20:32:44+01:00",
       "data_source": "file",
       "source_label": "Soubor (Bakaláři export)",
       "fetched_at": ""
@@ -17,7 +17,7 @@
       "week_label": "2. týden",
       "exported_at": "2026-11-05T08:26:00+01:00",
       "exported_at_display": "5. 11. 2026 08:26",
-      "updated_at": "2026-11-07T17:39:08+01:00",
+      "updated_at": "2026-11-07T20:32:44+01:00",
       "data_source": "file",
       "source_label": "Soubor (Bakaláři export)",
       "fetched_at": ""
@@ -28,7 +28,7 @@
       "week_label": "2. týden",
       "exported_at": "2026-11-05T08:26:00+01:00",
       "exported_at_display": "5. 11. 2026 08:26",
-      "updated_at": "2026-11-07T17:39:08+01:00",
+      "updated_at": "2026-11-07T20:32:44+01:00",
       "data_source": "file",
       "source_label": "Soubor (Bakaláři export)",
       "fetched_at": ""
@@ -39,7 +39,7 @@
       "week_label": "2. týden",
       "exported_at": "2026-11-05T08:26:00+01:00",
       "exported_at_display": "5. 11. 2026 08:26",
-      "updated_at": "2026-11-07T17:39:08+01:00",
+      "updated_at": "2026-11-07T20:32:44+01:00",
       "data_source": "file",
       "source_label": "Soubor (Bakaláři export)",
       "fetched_at": ""
@@ -48,23 +48,23 @@
       "date": "2026-11-06",
       "day_name": "Pátek",
       "week_label": "",
-      "exported_at": "2026-11-07T17:39:08+01:00",
-      "exported_at_display": "7. 11. 2026 17:39",
-      "updated_at": "2026-11-07T17:39:08+01:00",
+      "exported_at": "2026-11-07T20:32:44+01:00",
+      "exported_at_display": "7. 11. 2026 20:32",
+      "updated_at": "2026-11-07T20:32:44+01:00",
       "data_source": "web",
       "source_label": "Web (klasifikace.skolakrizik.cz)",
-      "fetched_at": "2026-11-07T17:39:08+01:00"
+      "fetched_at": "2026-11-07T20:32:44+01:00"
     },
     {
       "date": "2026-11-09",
       "day_name": "Pondělí",
       "week_label": "",
-      "exported_at": "2026-11-07T17:39:08+01:00",
-      "exported_at_display": "7. 11. 2026 17:39",
-      "updated_at": "2026-11-07T17:39:08+01:00",
+      "exported_at": "2026-11-07T20:32:44+01:00",
+      "exported_at_display": "7. 11. 2026 20:32",
+      "updated_at": "2026-11-07T20:32:44+01:00",
       "data_source": "web",
       "source_label": "Web (klasifikace.skolakrizik.cz)",
-      "fetched_at": "2026-11-07T17:39:08+01:00"
+      "fetched_at": "2026-11-07T20:32:44+01:00"
     }
   ],
   "status": {
@@ -76,8 +76,8 @@
     "age_hours": 0.0,
     "stale_threshold_hours": 24.0,
     "last_success": {
-      "exported_at": "2026-11-07T17:39:08+01:00",
-      "processed_at": "2026-11-07T17:39:08+01:00",
+      "exported_at": "2026-11-07T20:32:44+01:00",
+      "processed_at": "2026-11-07T20:32:44+01:00",
       "days_count": 1
     },
     "anonymize": true

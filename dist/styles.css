@@ -408,6 +408,41 @@ body {
   color: var(--text-main);
   margin-bottom: 0.25rem;
   font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.strip-header-title {
+  font-weight: 700;
+}
+
+.btn-strip-toggle {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--primary);
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  line-height: 1.25;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-strip-toggle:hover,
+.btn-strip-toggle:focus {
+  background: #e0f2fe;
+  border-color: var(--primary);
+  outline: none;
+}
+
+@media (min-width: 769px) {
+  .btn-strip-toggle {
+    display: none !important;
+  }
 }
 
 .strip-pills {

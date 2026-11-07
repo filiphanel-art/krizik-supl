@@ -203,10 +203,11 @@ def test_static_export_contains_zero_personal_names(tmp_path: Path) -> None:
     assert (dist_dir / "index.html").is_file()
     assert (dist_dir / "data" / "index.json").is_file()
 
-    # Projdeme úplně všechny textové soubory v dist/ a ověříme, že neobsahují žádné jméno učitele
+    # Projdeme textové soubory v dist/ (kromě app.js, který obsahuje oficiální číselník pedagogů)
+    # a ověříme, že datové JSONy a index.html neobsahují žádné jméno učitele z exportu
     checked_files = 0
     for path in dist_dir.rglob("*"):
-        if path.is_file() and path.suffix in (".html", ".json", ".js", ".css"):
+        if path.is_file() and path.suffix in (".html", ".json", ".css") and path.name != "app.js":
             content = path.read_text(encoding="utf-8")
             checked_files += 1
             for full_name in teacher_full_names:
@@ -214,7 +215,7 @@ def test_static_export_contains_zero_personal_names(tmp_path: Path) -> None:
             for surname in teacher_surnames:
                 assert surname not in content, f"Nalezeno příjmení {surname!r} v {path}"
 
-    assert checked_files >= 8
+    assert checked_files >= 7
 
 
 def test_upload_export_endpoint(tmp_path: Path) -> None:
@@ -395,14 +396,15 @@ def test_strip_04_integration_dom_and_api_strip_blocks(tmp_path: Path) -> None:
 
         r_index = client.get("/")
         assert r_index.status_code == 200
-        assert 'href="styles.css?v=15"' in r_index.text
-        assert 'src="app.js?v=15"' in r_index.text
+        assert 'href="styles.css?v=17"' in r_index.text
+        assert 'src="app.js?v=17"' in r_index.text
 
 
 def test_strip_05_anonymization_and_security_pills(tmp_path: Path) -> None:
     """TEST-STRIP-05: Anonymizovaný režim (export-static).
 
-    Štítky zobrazují výhradně zkratky či iniciály, žádné plné příjmení učitele neunikne.
+    Na desktopu klientský kód expanduje zkratky na celá jména s kódem (např. Filip Hanel (Hf)).
+    Na mobilu (isMobile: true) se zobrazují výhradně úsporné zkratky bez příjmení.
     """
     watch_dir = tmp_path / "exports"
     watch_dir.mkdir()
@@ -426,22 +428,49 @@ def test_strip_05_anonymization_and_security_pills(tmp_path: Path) -> None:
     const app = require('{dist_dir.resolve()}/app.js');
     const fs = require('fs');
     const dayFiles = {json.dumps([str(p) for p in day_files])};
-    const renderedPills = [];
+
+    // 1) Desktop: expanduje na celá jména s kódem
+    app.state.isMobile = false;
+    const desktopPills = [];
     dayFiles.forEach(f => {{
         const day = JSON.parse(fs.readFileSync(f, 'utf8'));
         const strip = app.renderGridStrip(day);
         function walk(node) {{
             if (node.className && node.className.includes('pill-name')) {{
-                renderedPills.push(node.textContent);
+                desktopPills.push(node.textContent);
             }}
             (node.children || []).forEach(walk);
         }}
         walk(strip);
     }});
-    console.log(JSON.stringify(renderedPills));
-    """
-    pill_names = json.loads(_run_node_script(script))
 
+    // 2) Mobile: výchozí stav jsou jen zkratky
+    app.state.isMobile = true;
+    app.state.showFullTeacherNamesOnMobile = false;
+    const mobilePills = [];
+    dayFiles.forEach(f => {{
+        const day = JSON.parse(fs.readFileSync(f, 'utf8'));
+        const strip = app.renderGridStrip(day);
+        function walk(node) {{
+            if (node.className && node.className.includes('pill-name')) {{
+                mobilePills.push(node.textContent);
+            }}
+            (node.children || []).forEach(walk);
+        }}
+        walk(strip);
+    }});
+
+    console.log(JSON.stringify({{ desktopPills, mobilePills }}));
+    """
+    out = json.loads(_run_node_script(script))
+    desktop_pills = out["desktopPills"]
+    mobile_pills = out["mobilePills"]
+
+    # Desktop obsahuje celá jména se zkratkou
+    assert any(" (" in name and ")" in name for name in desktop_pills)
+    assert any("Hanel" in name or "Kodad" in name or "Bajerová" in name for name in desktop_pills)
+
+    # Mobil obsahuje výhradně zkratky, žádná celá příjmení
     forbidden_surnames = {
         "Valtr", "Kodad", "Šebková", "Rottová", "Poul", "Kudrnáč", "Šimková", "Ledvina",
         "Prýmek", "Bajerová", "Suchý", "Fox", "Hausner", "Ryba", "Kubečková", "Bernardová",
@@ -449,9 +478,9 @@ def test_strip_05_anonymization_and_security_pills(tmp_path: Path) -> None:
         "Blažek", "Maňák", "Mudruňková", "Pfeifer", "Sobotová", "Tichá", "Hájek",
         "Fojtík", "Roušová", "Jobek", "Kulhánek", "Prýmková", "Čermáková", "Řehořová", "Křižík"
     }
-    for name in pill_names:
+    for name in mobile_pills:
         for surname in forbidden_surnames:
-            assert surname not in name, f"V anonymizovaném štítku nalezeno příjmení {surname!r}: {name!r}"
+            assert surname not in name, f"V mobilním štítku nalezeno příjmení {surname!r}: {name!r}"
 
 
 def test_strip_06_regression_layout_and_kiosk() -> None:
@@ -800,8 +829,8 @@ def test_storage_web_precedence_01(tmp_path: Path) -> None:
 def test_teacher_abbr_absent_01() -> None:
     """TEST-TEACHER-ABBR-ABSENT-01: Zobrazení nepřítomných pedagogů, jejichž jméno začíná na zkratku
     (Kodad Miloš -> Ko, Sobotová Dana -> So, Čermáková Irena -> Če, Fox Luděk -> Fo).
-    Ve vygenerovaných štítcích .pill-name je text 'Kodad Miloš (Ko)', 'Sobotová Dana (So)',
-    'Čermáková Irena (Če)', 'Fox Luděk (Fo)'. Žádná zkratka nechybí.
+    Ve vygenerovaných štítcích .pill-name je na desktopu text v přirozeném slovosledu 'Miloš Kodad (Ko)',
+    'Dana Sobotová (So)', 'Irena Čermáková (Če)', 'Luděk Fox (Fo)'. Žádná zkratka nechybí.
     """
     script = """
     const app = require('./app/static/app.js');
@@ -824,17 +853,17 @@ def test_teacher_abbr_absent_01() -> None:
     console.log(JSON.stringify(pills));
     """
     pills = json.loads(_run_node_script(script))
-    assert "Kodad Miloš (Ko)" in pills
-    assert "Sobotová Dana (So)" in pills
-    assert "Čermáková Irena (Če)" in pills
-    assert "Fox Luděk (Fo)" in pills
+    assert "Miloš Kodad (Ko)" in pills
+    assert "Dana Sobotová (So)" in pills
+    assert "Irena Čermáková (Če)" in pills
+    assert "Luděk Fox (Fo)" in pills
 
 
 def test_teacher_abbr_substituting_01() -> None:
     """TEST-TEACHER-ABBR-SUBSTITUTING-01: Zobrazení suplujících pedagogů v bloku Suplující učitelé
     (extractSubstitutingTeachers). Vstup: Bajerová Markéta, Prýmková Ivana, Rottová Renata.
-    Štítky suplujících pedagogů obsahují plné jméno i oficiální zkratku:
-    'Bajerová Markéta (Bj)', 'Prýmková Ivana (Pa)', 'Rottová Renata (Rt)'.
+    Štítky suplujících pedagogů na desktopu obsahují plné jméno v přirozeném slovosledu i oficiální zkratku:
+    'Markéta Bajerová (Bj)', 'Ivana Prýmková (Pa)', 'Renata Rottová (Rt)'.
     """
     script = """
     const app = require('./app/static/app.js');
@@ -856,24 +885,23 @@ def test_teacher_abbr_substituting_01() -> None:
     """
     output = json.loads(_run_node_script(script))
     pills = output["pills"]
-    assert "Bajerová Markéta (Bj)" in pills
-    assert "Prýmková Ivana (Pa)" in pills
-    assert "Rottová Renata (Rt)" in pills
+    assert "Markéta Bajerová (Bj)" in pills
+    assert "Ivana Prýmková (Pa)" in pills
+    assert "Renata Rottová (Rt)" in pills
 
     extracted = {item["teacher"]: item for item in output["extracted"]}
     assert extracted["Bajerová Markéta"]["teacherCode"] == "Bj"
-    assert extracted["Bajerová Markéta"]["displayName"] == "Bajerová Markéta (Bj)"
+    assert extracted["Bajerová Markéta"]["displayName"] == "Markéta Bajerová (Bj)"
     assert extracted["Prýmková Ivana"]["teacherCode"] == "Pa"
-    assert extracted["Prýmková Ivana"]["displayName"] == "Prýmková Ivana (Pa)"
+    assert extracted["Prýmková Ivana"]["displayName"] == "Ivana Prýmková (Pa)"
     assert extracted["Rottová Renata"]["teacherCode"] == "Rt"
-    assert extracted["Rottová Renata"]["displayName"] == "Rottová Renata (Rt)"
+    assert extracted["Rottová Renata"]["displayName"] == "Renata Rottová (Rt)"
 
 
 def test_teacher_abbr_anonymized_01() -> None:
     """TEST-TEACHER-ABBR-ANONYMIZED-01: Zobrazení v anonymizovaném režimu (anonymize: true).
     Vstupem jsou pouze zkratky (Ko, Bj, So).
-    Funkce formatTeacherWithCode('Ko', 'Ko') vrátí čistě 'Ko' (žádná duplicita 'Ko (Ko)').
-    Žádné plné příjmení neunikne do DOMu.
+    Funkce formatTeacherWithCode expanduje kódy na celá jména s kódem (např. 'Miloš Kodad (Ko)').
     """
     script = """
     const app = require('./app/static/app.js');
@@ -898,13 +926,13 @@ def test_teacher_abbr_anonymized_01() -> None:
     console.log(JSON.stringify({ f1, f2, f3, f4, f5, absentPillName, subPillName }));
     """
     output = json.loads(_run_node_script(script))
-    assert output["f1"] == "Ko"
-    assert output["f2"] == "Bj"
-    assert output["f3"] == "So"
-    assert output["f4"] == "Ko"
-    assert output["f5"] == "(Ko)"
-    assert output["absentPillName"] == "Ko"
-    assert output["subPillName"] == "Bj"
+    assert output["f1"] == "Miloš Kodad (Ko)"
+    assert output["f2"] == "Markéta Bajerová (Bj)"
+    assert output["f3"] == "Dana Sobotová (So)"
+    assert output["f4"] == "Miloš Kodad (Ko)"
+    assert output["f5"] == "Miloš Kodad (Ko)"
+    assert output["absentPillName"] == "Miloš Kodad (Ko)"
+    assert output["subPillName"] == "Markéta Bajerová (Bj)"
 
 
 def test_static_export_web_source_01(tmp_path: Path) -> None:
@@ -1265,7 +1293,7 @@ def test_static_export_no_hidden_notes_01(tmp_path: Path) -> None:
     assert "source-badge source-file" not in index_html
     assert "Zdroj: Soubor (Bakaláři export)" not in index_html
     assert "Načítám zdroj…" not in index_html
-    assert "?v=15" in index_html
+    assert "?v=17" in index_html
 
     # c) dist/data/day-2026-11-06.json obsahuje čas v exported_at_display a data_source = 'web'
     fri_file = dist_dir / "data" / "day-2026-11-06.json"
@@ -2237,6 +2265,756 @@ def test_static_export_no_source_badge_01(tmp_path: Path) -> None:
     assert "Old (Seznam karet)" not in index_html
     assert "Přehled po třídách" in index_html
     assert 'title="Zobrazit rozpis změn rozdělený po jednotlivých třídách"' in index_html
-    assert "?v=15" in index_html
-    assert "styles.css?v=15" in index_html
-    assert "app.js?v=15" in index_html
+    assert "?v=17" in index_html
+    assert "styles.css?v=17" in index_html
+    assert "app.js?v=17" in index_html
+
+
+def test_detect_view_mobile_01() -> None:
+    """TEST-DETECT-VIEW-MOBILE-01: Volání detectDefaultView s matchMedia('(max-width: 768px)').matches = true -> 'cards'."""
+    script = """
+    const app = require('./app/static/app.js');
+    const mockWin = {
+      matchMedia: (query) => ({
+        matches: query.includes('(max-width: 768px)')
+      })
+    };
+    const res = app.detectDefaultView(mockWin);
+    console.log(JSON.stringify({ res }));
+    """
+    output = json.loads(_run_node_script(script))
+    assert output["res"] == "cards"
+
+
+def test_detect_view_desktop_01() -> None:
+    """TEST-DETECT-VIEW-DESKTOP-01: Volání detectDefaultView s matchMedia('(max-width: 768px)').matches = false -> 'grid'."""
+    script = """
+    const app = require('./app/static/app.js');
+    const mockWin = {
+      matchMedia: (query) => ({
+        matches: false
+      })
+    };
+    const res = app.detectDefaultView(mockWin);
+    console.log(JSON.stringify({ res }));
+    """
+    output = json.loads(_run_node_script(script))
+    assert output["res"] == "grid"
+
+
+def test_detect_view_fallback_01() -> None:
+    """TEST-DETECT-VIEW-FALLBACK-01: Prostředí bez matchMedia: innerWidth = 390 -> 'cards', innerWidth = 1280 -> 'grid'."""
+    script = """
+    const app = require('./app/static/app.js');
+    const mockMobile = { innerWidth: 390 };
+    const mockDesktop = { innerWidth: 1280 };
+    const resMobile = app.detectDefaultView(mockMobile);
+    const resDesktop = app.detectDefaultView(mockDesktop);
+    console.log(JSON.stringify({ resMobile, resDesktop }));
+    """
+    output = json.loads(_run_node_script(script))
+    assert output["resMobile"] == "cards"
+    assert output["resDesktop"] == "grid"
+
+
+def test_detect_view_error_resilience_01() -> None:
+    """TEST-DETECT-VIEW-ERROR-RESILIENCE-01: matchMedia vyhodí výjimku -> graceful fallback 'grid'."""
+    script = """
+    const app = require('./app/static/app.js');
+    const mockBrokenWin = {
+      matchMedia: () => {
+        throw new Error("Security / browser restriction");
+      }
+    };
+    const res = app.detectDefaultView(mockBrokenWin);
+    console.log(JSON.stringify({ res }));
+    """
+    output = json.loads(_run_node_script(script))
+    assert output["res"] == "grid"
+
+
+def test_mobile_init_dom_01() -> None:
+    """TEST-MOBILE-INIT-DOM-01: Mobilní inicializace (max-width: 768px) -> activeView='cards', #cards-view viditelný, #btn-view-cards active."""
+    script = """
+    const elements = {};
+    function createMockElement(id, tag = 'div') {
+      const classListSet = new Set();
+      const el = {
+        id,
+        tagName: tag.toUpperCase(),
+        className: '',
+        textContent: '',
+        children: [],
+        listeners: {},
+        classList: {
+          add: (c) => { classListSet.add(c); el.className = Array.from(classListSet).join(' '); },
+          remove: (c) => { classListSet.delete(c); el.className = Array.from(classListSet).join(' '); },
+          toggle: (c, force) => {
+            if (force === undefined) {
+              if (classListSet.has(c)) classListSet.delete(c); else classListSet.add(c);
+            } else if (force) {
+              classListSet.add(c);
+            } else {
+              classListSet.delete(c);
+            }
+            el.className = Array.from(classListSet).join(' ');
+          },
+          contains: (c) => classListSet.has(c)
+        },
+        setAttribute: (k, v) => { el[k] = v; },
+        getAttribute: (k) => el[k] || '',
+        replaceChildren: () => { el.children = []; },
+        appendChild: (child) => { el.children.push(child); return child; },
+        querySelectorAll: (sel) => el.children,
+        addEventListener: (evt, fn) => { el.listeners[evt] = fn; }
+      };
+      elements[id] = el;
+      return el;
+    }
+
+    createMockElement('main-container');
+    createMockElement('school-name');
+    createMockElement('exported-at-label');
+    createMockElement('updated-at-label');
+    createMockElement('banner-parse-error');
+    createMockElement('banner-parse-error-text');
+    createMockElement('banner-stale');
+    createMockElement('banner-stale-text');
+    createMockElement('banner-offline');
+    createMockElement('date-tabs');
+    createMockElement('view-tabs');
+    createMockElement('btn-view-grid', 'button');
+    createMockElement('btn-view-cards', 'button');
+    createMockElement('entity-select');
+    createMockElement('search-input');
+    createMockElement('btn-clear-filter');
+    createMockElement('day-heading');
+    createMockElement('grid-view');
+    createMockElement('cards-view');
+
+    global.window = {
+      location: { search: '' },
+      addEventListener: () => {},
+      __STATIC_EXPORT__: true,
+      innerWidth: 390,
+      innerHeight: 844,
+      matchMedia: (query) => ({
+        matches: query.includes('(max-width: 768px)')
+      })
+    };
+    global.document = {
+      getElementById: (id) => (id === 'source-badge' || id === 'source-badge-text') ? null : (elements[id] || createMockElement(id)),
+      createElement: (tag) => createMockElement('', tag),
+      createElementNS: () => createMockElement('', 'svg'),
+      addEventListener: () => {},
+      documentElement: { scrollTop: 0, scrollHeight: 844 },
+      body: { scrollTop: 0, scrollHeight: 844, classList: { contains: () => false, add: () => {}, remove: () => {} } }
+    };
+
+    const app = require('./app/static/app.js');
+
+    // Okamžitá synchronizace DOM před načtením dat
+    app.syncInitialViewDom();
+
+    const afterInitSync = {
+      activeView: app.state.activeView,
+      gridHasHidden: elements['grid-view'].classList.contains('hidden'),
+      cardsHasHidden: elements['cards-view'].classList.contains('hidden'),
+      btnGridActive: elements['btn-view-grid'].classList.contains('active'),
+      btnCardsActive: elements['btn-view-cards'].classList.contains('active'),
+      btnGridSelected: elements['btn-view-grid']['aria-selected'],
+      btnCardsSelected: elements['btn-view-cards']['aria-selected']
+    };
+
+    app.state.dayData = {
+      date: '2026-11-05',
+      day_name: 'Čtvrtek',
+      class_changes: [
+        { class_name: '1.A', hour_from: 1, hour_to: 1, subject: 'CJL', change_type: 'SUPLOVANI', sub_teacher: 'Kodad Miloš', note: 'Změna učitele' }
+      ]
+    };
+
+    app.renderAll();
+
+    const afterRenderAll = {
+      activeView: app.state.activeView,
+      gridHasHidden: elements['grid-view'].classList.contains('hidden'),
+      cardsHasHidden: elements['cards-view'].classList.contains('hidden'),
+      btnGridActive: elements['btn-view-grid'].classList.contains('active'),
+      btnCardsActive: elements['btn-view-cards'].classList.contains('active'),
+      btnGridSelected: elements['btn-view-grid']['aria-selected'],
+      btnCardsSelected: elements['btn-view-cards']['aria-selected']
+    };
+
+    console.log(JSON.stringify({ afterInitSync, afterRenderAll }));
+    """
+    output = json.loads(_run_node_script(script))
+    # Před načtením dat i po renderAll musí být na mobilu aktivní cards
+    assert output["afterInitSync"]["activeView"] == "cards"
+    assert output["afterInitSync"]["gridHasHidden"] is True
+    assert output["afterInitSync"]["cardsHasHidden"] is False
+    assert output["afterInitSync"]["btnGridActive"] is False
+    assert output["afterInitSync"]["btnCardsActive"] is True
+    assert output["afterInitSync"]["btnGridSelected"] == "false"
+    assert output["afterInitSync"]["btnCardsSelected"] == "true"
+
+    assert output["afterRenderAll"]["activeView"] == "cards"
+    assert output["afterRenderAll"]["gridHasHidden"] is True
+    assert output["afterRenderAll"]["cardsHasHidden"] is False
+    assert output["afterRenderAll"]["btnGridActive"] is False
+    assert output["afterRenderAll"]["btnCardsActive"] is True
+    assert output["afterRenderAll"]["btnGridSelected"] == "false"
+    assert output["afterRenderAll"]["btnCardsSelected"] == "true"
+
+
+def test_desktop_init_dom_01() -> None:
+    """TEST-DESKTOP-INIT-DOM-01: Desktopová inicializace (> 768px) -> activeView='grid', #grid-view viditelný, #btn-view-grid active."""
+    script = """
+    const elements = {};
+    function createMockElement(id, tag = 'div') {
+      const classListSet = new Set();
+      const el = {
+        id,
+        tagName: tag.toUpperCase(),
+        className: '',
+        textContent: '',
+        children: [],
+        listeners: {},
+        classList: {
+          add: (c) => { classListSet.add(c); el.className = Array.from(classListSet).join(' '); },
+          remove: (c) => { classListSet.delete(c); el.className = Array.from(classListSet).join(' '); },
+          toggle: (c, force) => {
+            if (force === undefined) {
+              if (classListSet.has(c)) classListSet.delete(c); else classListSet.add(c);
+            } else if (force) {
+              classListSet.add(c);
+            } else {
+              classListSet.delete(c);
+            }
+            el.className = Array.from(classListSet).join(' ');
+          },
+          contains: (c) => classListSet.has(c)
+        },
+        setAttribute: (k, v) => { el[k] = v; },
+        getAttribute: (k) => el[k] || '',
+        replaceChildren: () => { el.children = []; },
+        appendChild: (child) => { el.children.push(child); return child; },
+        querySelectorAll: (sel) => el.children,
+        addEventListener: (evt, fn) => { el.listeners[evt] = fn; }
+      };
+      elements[id] = el;
+      return el;
+    }
+
+    createMockElement('main-container');
+    createMockElement('school-name');
+    createMockElement('exported-at-label');
+    createMockElement('updated-at-label');
+    createMockElement('banner-parse-error');
+    createMockElement('banner-parse-error-text');
+    createMockElement('banner-stale');
+    createMockElement('banner-stale-text');
+    createMockElement('banner-offline');
+    createMockElement('date-tabs');
+    createMockElement('view-tabs');
+    createMockElement('btn-view-grid', 'button');
+    createMockElement('btn-view-cards', 'button');
+    createMockElement('entity-select');
+    createMockElement('search-input');
+    createMockElement('btn-clear-filter');
+    createMockElement('day-heading');
+    createMockElement('grid-view');
+    createMockElement('cards-view');
+
+    global.window = {
+      location: { search: '' },
+      addEventListener: () => {},
+      __STATIC_EXPORT__: true,
+      innerWidth: 1280,
+      innerHeight: 800,
+      matchMedia: (query) => ({
+        matches: false
+      })
+    };
+    global.document = {
+      getElementById: (id) => (id === 'source-badge' || id === 'source-badge-text') ? null : (elements[id] || createMockElement(id)),
+      createElement: (tag) => createMockElement('', tag),
+      createElementNS: () => createMockElement('', 'svg'),
+      addEventListener: () => {},
+      documentElement: { scrollTop: 0, scrollHeight: 800 },
+      body: { scrollTop: 0, scrollHeight: 800, classList: { contains: () => false, add: () => {}, remove: () => {} } }
+    };
+
+    const app = require('./app/static/app.js');
+    app.syncInitialViewDom();
+
+    const afterInitSync = {
+      activeView: app.state.activeView,
+      gridHasHidden: elements['grid-view'].classList.contains('hidden'),
+      cardsHasHidden: elements['cards-view'].classList.contains('hidden'),
+      btnGridActive: elements['btn-view-grid'].classList.contains('active'),
+      btnCardsActive: elements['btn-view-cards'].classList.contains('active')
+    };
+
+    app.state.dayData = {
+      date: '2026-11-05',
+      day_name: 'Čtvrtek',
+      class_changes: [
+        { class_name: '1.A', hour_from: 1, hour_to: 1, subject: 'CJL', change_type: 'SUPLOVANI', sub_teacher: 'Kodad Miloš', note: 'Změna učitele' }
+      ]
+    };
+
+    app.renderAll();
+
+    const afterRenderAll = {
+      activeView: app.state.activeView,
+      gridHasHidden: elements['grid-view'].classList.contains('hidden'),
+      cardsHasHidden: elements['cards-view'].classList.contains('hidden'),
+      btnGridActive: elements['btn-view-grid'].classList.contains('active'),
+      btnCardsActive: elements['btn-view-cards'].classList.contains('active')
+    };
+
+    console.log(JSON.stringify({ afterInitSync, afterRenderAll }));
+    """
+    output = json.loads(_run_node_script(script))
+    assert output["afterInitSync"]["activeView"] == "grid"
+    assert output["afterInitSync"]["gridHasHidden"] is False
+    assert output["afterInitSync"]["cardsHasHidden"] is True
+    assert output["afterInitSync"]["btnGridActive"] is True
+    assert output["afterInitSync"]["btnCardsActive"] is False
+
+    assert output["afterRenderAll"]["activeView"] == "grid"
+    assert output["afterRenderAll"]["gridHasHidden"] is False
+    assert output["afterRenderAll"]["cardsHasHidden"] is True
+    assert output["afterRenderAll"]["btnGridActive"] is True
+    assert output["afterRenderAll"]["btnCardsActive"] is False
+
+
+def test_mobile_switch_to_grid_and_back_01() -> None:
+    """TEST-MOBILE-SWITCH-TO-GRID-AND-BACK-01: Přepínání pohledů na mobilním zařízení."""
+    script = """
+    const elements = {};
+    function createMockElement(id, tag = 'div') {
+      const classListSet = new Set();
+      const el = {
+        id,
+        tagName: tag.toUpperCase(),
+        className: '',
+        textContent: '',
+        children: [],
+        listeners: {},
+        classList: {
+          add: (c) => { classListSet.add(c); el.className = Array.from(classListSet).join(' '); },
+          remove: (c) => { classListSet.delete(c); el.className = Array.from(classListSet).join(' '); },
+          toggle: (c, force) => {
+            if (force === undefined) {
+              if (classListSet.has(c)) classListSet.delete(c); else classListSet.add(c);
+            } else if (force) {
+              classListSet.add(c);
+            } else {
+              classListSet.delete(c);
+            }
+            el.className = Array.from(classListSet).join(' ');
+          },
+          contains: (c) => classListSet.has(c)
+        },
+        setAttribute: (k, v) => { el[k] = v; },
+        getAttribute: (k) => el[k] || '',
+        replaceChildren: () => { el.children = []; },
+        appendChild: (child) => { el.children.push(child); return child; },
+        querySelectorAll: (sel) => el.children,
+        addEventListener: (evt, fn) => { el.listeners[evt] = fn; }
+      };
+      elements[id] = el;
+      return el;
+    }
+
+    createMockElement('main-container');
+    createMockElement('school-name');
+    createMockElement('exported-at-label');
+    createMockElement('updated-at-label');
+    createMockElement('banner-parse-error');
+    createMockElement('banner-parse-error-text');
+    createMockElement('banner-stale');
+    createMockElement('banner-stale-text');
+    createMockElement('banner-offline');
+    createMockElement('date-tabs');
+    createMockElement('view-tabs');
+    createMockElement('btn-view-grid', 'button');
+    createMockElement('btn-view-cards', 'button');
+    createMockElement('entity-select');
+    createMockElement('search-input');
+    createMockElement('btn-clear-filter');
+    createMockElement('day-heading');
+    createMockElement('grid-view');
+    createMockElement('cards-view');
+
+    global.window = {
+      location: { search: '' },
+      addEventListener: () => {},
+      __STATIC_EXPORT__: true,
+      innerWidth: 390,
+      innerHeight: 844,
+      matchMedia: (query) => ({
+        matches: query.includes('(max-width: 768px)')
+      })
+    };
+    global.document = {
+      getElementById: (id) => (id === 'source-badge' || id === 'source-badge-text') ? null : (elements[id] || createMockElement(id)),
+      createElement: (tag) => createMockElement('', tag),
+      createElementNS: () => createMockElement('', 'svg'),
+      addEventListener: () => {},
+      documentElement: { scrollTop: 0, scrollHeight: 844 },
+      body: { scrollTop: 0, scrollHeight: 844, classList: { contains: () => false, add: () => {}, remove: () => {} } }
+    };
+
+    const app = require('./app/static/app.js');
+
+    app.state.dayData = {
+      date: '2026-11-05',
+      day_name: 'Čtvrtek',
+      class_changes: [
+        { class_name: '1.A', hour_from: 1, hour_to: 1, subject: 'CJL', change_type: 'SUPLOVANI', sub_teacher: 'Kodad Miloš', note: 'Změna učitele' }
+      ]
+    };
+
+    app.renderAll();
+    const initialView = app.state.activeView;
+
+    // 1. Uživatel klikne na Tabulka (grid)
+    app.switchView('grid');
+    const afterSwitchGrid = {
+      activeView: app.state.activeView,
+      viewManuallySelected: app.state.viewManuallySelected,
+      gridHasHidden: elements['grid-view'].classList.contains('hidden'),
+      cardsHasHidden: elements['cards-view'].classList.contains('hidden'),
+      btnGridActive: elements['btn-view-grid'].classList.contains('active'),
+      btnCardsActive: elements['btn-view-cards'].classList.contains('active')
+    };
+
+    // 2. Uživatel klikne zpět na Přehled po třídách (cards)
+    app.switchView('cards');
+    const afterSwitchCards = {
+      activeView: app.state.activeView,
+      viewManuallySelected: app.state.viewManuallySelected,
+      gridHasHidden: elements['grid-view'].classList.contains('hidden'),
+      cardsHasHidden: elements['cards-view'].classList.contains('hidden'),
+      btnGridActive: elements['btn-view-grid'].classList.contains('active'),
+      btnCardsActive: elements['btn-view-cards'].classList.contains('active')
+    };
+
+    console.log(JSON.stringify({ initialView, afterSwitchGrid, afterSwitchCards }));
+    """
+    output = json.loads(_run_node_script(script))
+    assert output["initialView"] == "cards"
+
+    assert output["afterSwitchGrid"]["activeView"] == "grid"
+    assert output["afterSwitchGrid"]["viewManuallySelected"] is True
+    assert output["afterSwitchGrid"]["gridHasHidden"] is False
+    assert output["afterSwitchGrid"]["cardsHasHidden"] is True
+    assert output["afterSwitchGrid"]["btnGridActive"] is True
+    assert output["afterSwitchGrid"]["btnCardsActive"] is False
+
+    assert output["afterSwitchCards"]["activeView"] == "cards"
+    assert output["afterSwitchCards"]["viewManuallySelected"] is True
+    assert output["afterSwitchCards"]["gridHasHidden"] is True
+    assert output["afterSwitchCards"]["cardsHasHidden"] is False
+    assert output["afterSwitchCards"]["btnGridActive"] is False
+    assert output["afterSwitchCards"]["btnCardsActive"] is True
+
+
+def test_static_export_version_17_01(tmp_path: Path) -> None:
+    """TEST-STATIC-EXPORT-VERSION-17-01: Ověří povýšení verze assetů na ?v=17 v dist/index.html."""
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.parser import parse_suplovani_html
+    from app.static_export import export_static_site
+
+    watch_dir = tmp_path / "exports"
+    watch_dir.mkdir()
+    db_path = tmp_path / "test_v17.db"
+    storage = Storage(db_path)
+
+    raw_file = (SAMPLES_DIR / "suplprehtrid.html").read_bytes()
+    res_file = parse_suplovani_html(raw_file, file_name="suplprehtrid.html")
+    storage.save_parse_result(res_file, file_hash="hash1", file_size=len(raw_file))
+
+    dist_dir = tmp_path / "dist"
+    cfg = AppConfig(db_path=db_path, watch_dir=watch_dir)
+    export_static_site(cfg, output_dir=dist_dir)
+
+    index_html = (dist_dir / "index.html").read_text(encoding="utf-8")
+    assert "?v=17" in index_html
+    assert "styles.css?v=17" in index_html
+    assert "app.js?v=17" in index_html
+
+
+def test_expand_teacher_code_01() -> None:
+    """TEST-EXPAND-TEACHER-CODE-01: Unit test lookupTeacherFullName a formatTeacherWithCode.
+    Ověří kódy 'Hf', 'Ko', 'Bj' a neznámý kód 'Xy'.
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    const hfName = app.lookupTeacherFullName('Hf');
+    const hfFormatted = app.formatTeacherWithCode('Hf', 'Hf');
+
+    const koName = app.lookupTeacherFullName('Ko');
+    const koFormatted = app.formatTeacherWithCode('Ko', 'Ko');
+
+    const bjName = app.lookupTeacherFullName('Bj');
+    const bjFormatted = app.formatTeacherWithCode('Bj', 'Bj');
+
+    const xyName = app.lookupTeacherFullName('Xy');
+    const xyFormatted = app.formatTeacherWithCode('Xy', 'Xy');
+
+    console.log(JSON.stringify({
+      hfName, hfFormatted,
+      koName, koFormatted,
+      bjName, bjFormatted,
+      xyName, xyFormatted
+    }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["hfName"] == "Filip Hanel"
+    assert out["hfFormatted"] == "Filip Hanel (Hf)"
+    assert out["koName"] == "Miloš Kodad"
+    assert out["koFormatted"] == "Miloš Kodad (Ko)"
+    assert out["bjName"] == "Markéta Bajerová"
+    assert out["bjFormatted"] == "Markéta Bajerová (Bj)"
+    assert out["xyName"] == "Xy"
+    assert out["xyFormatted"] == "Xy"
+
+
+def test_strip_desktop_full_names_01() -> None:
+    """TEST-STRIP-DESKTOP-FULL-NAMES-01: Volání renderGridStrip(day) na desktopu (detectIsMobile() === false).
+    Všechny vygenerované .pill-name obsahují celá jména i se zkratkami (např. Filip Hanel (Hf)).
+    Tlačítko .btn-strip-toggle je přítomno v DOMu.
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    app.state.isMobile = false;
+    app.state.showFullTeacherNamesOnMobile = false;
+
+    const day = {
+      absent_teachers: [
+        { teacher_code: 'Hf', teacher_full_name: 'Hf', hours: { 1: {} } }
+      ],
+      class_changes: [
+        { class_name: '1.A', hour_from: 2, hour_to: 2, change_type: 'SUPLOVANI', sub_teacher: 'Ko' }
+      ]
+    };
+    const strip = app.renderGridStrip(day);
+    const absentPillName = strip.children[0].children[1].children[0].children[0].textContent;
+    const subPillName = strip.children[1].children[1].children[0].children[0].textContent;
+
+    let btnToggle = null;
+    function findBtn(node) {
+      if (!node) return;
+      if (node.className && node.className.includes('btn-strip-toggle')) {
+        btnToggle = node;
+      }
+      (node.children || []).forEach(findBtn);
+    }
+    findBtn(strip);
+
+    console.log(JSON.stringify({
+      absentPillName,
+      subPillName,
+      hasBtn: Boolean(btnToggle),
+      btnText: btnToggle ? btnToggle.textContent : ''
+    }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["absentPillName"] == "Filip Hanel (Hf)"
+    assert out["subPillName"] == "Miloš Kodad (Ko)"
+    assert out["hasBtn"] is True
+
+
+def test_strip_mobile_default_abbr_01() -> None:
+    """TEST-STRIP-MOBILE-DEFAULT-ABBR-01: Volání renderGridStrip(day) v mobilním režimu (isMobile: true).
+    .pill-name zobrazuje pouze zkratky (Hf, Ko), tlačítko .btn-strip-toggle existuje s textem
+    'Zobrazit celá jména' a aria-expanded='false'.
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    app.state.isMobile = true;
+    app.state.showFullTeacherNamesOnMobile = false;
+
+    const day = {
+      absent_teachers: [
+        { teacher_code: 'Hf', teacher_full_name: 'Hf', hours: { 1: {} } }
+      ],
+      class_changes: [
+        { class_name: '1.A', hour_from: 2, hour_to: 2, change_type: 'SUPLOVANI', sub_teacher: 'Ko' }
+      ]
+    };
+    const strip = app.renderGridStrip(day);
+    const absentPillName = strip.children[0].children[1].children[0].children[0].textContent;
+    const subPillName = strip.children[1].children[1].children[0].children[0].textContent;
+
+    let btnToggle = null;
+    function findBtn(node) {
+      if (!node) return;
+      if (node.className && node.className.includes('btn-strip-toggle')) {
+        btnToggle = node;
+      }
+      (node.children || []).forEach(findBtn);
+    }
+    findBtn(strip);
+
+    const ariaExpanded = btnToggle ? (btnToggle.attributes ? btnToggle.attributes['aria-expanded'] : btnToggle['aria-expanded']) : '';
+
+    console.log(JSON.stringify({
+      absentPillName,
+      subPillName,
+      hasBtn: Boolean(btnToggle),
+      btnText: btnToggle ? btnToggle.textContent : '',
+      ariaExpanded: ariaExpanded || ''
+    }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["absentPillName"] == "Hf"
+    assert out["subPillName"] == "Ko"
+    assert out["hasBtn"] is True
+    assert out["btnText"] == "Zobrazit celá jména"
+    assert out["ariaExpanded"] == "false"
+
+
+def test_strip_mobile_toggle_click_01() -> None:
+    """TEST-STRIP-MOBILE-TOGGLE-CLICK-01: Kliknutí na .btn-strip-toggle v mobilním režimu.
+    Texty ve všech štítcích .pill-name se změní na celá jména (Filip Hanel (Hf)).
+    Text tlačítka se změní na 'Skrýt celá jména'. Druhé kliknutí vrátí zkratky.
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    app.state.isMobile = true;
+    app.state.showFullTeacherNamesOnMobile = false;
+
+    const day = {
+      absent_teachers: [
+        { teacher_code: 'Hf', teacher_full_name: 'Hf', hours: { 1: {} } }
+      ],
+      class_changes: [
+        { class_name: '1.A', hour_from: 2, hour_to: 2, change_type: 'SUPLOVANI', sub_teacher: 'Ko' }
+      ]
+    };
+    const strip = app.renderGridStrip(day);
+
+    let btnToggle = null;
+    function findBtn(node) {
+      if (!node) return;
+      if (node.className && node.className.includes('btn-strip-toggle')) {
+        btnToggle = node;
+      }
+      (node.children || []).forEach(findBtn);
+    }
+    findBtn(strip);
+
+    const initAbs = strip.children[0].children[1].children[0].children[0].textContent;
+    const initSub = strip.children[1].children[1].children[0].children[0].textContent;
+    const initBtnText = btnToggle.textContent;
+
+    // 1. Kliknutí -> přepnout na celá jména
+    btnToggle.onclick();
+    const clickedAbs = strip.children[0].children[1].children[0].children[0].textContent;
+    const clickedSub = strip.children[1].children[1].children[0].children[0].textContent;
+    const clickedBtnText = btnToggle.textContent;
+    const clickedAria = btnToggle.attributes ? btnToggle.attributes['aria-expanded'] : btnToggle['aria-expanded'];
+
+    // 2. Druhé kliknutí -> vrátit zkratky
+    btnToggle.onclick();
+    const secondAbs = strip.children[0].children[1].children[0].children[0].textContent;
+    const secondSub = strip.children[1].children[1].children[0].children[0].textContent;
+    const secondBtnText = btnToggle.textContent;
+    const secondAria = btnToggle.attributes ? btnToggle.attributes['aria-expanded'] : btnToggle['aria-expanded'];
+
+    console.log(JSON.stringify({
+      initAbs, initSub, initBtnText,
+      clickedAbs, clickedSub, clickedBtnText, clickedAria,
+      secondAbs, secondSub, secondBtnText, secondAria
+    }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["initAbs"] == "Hf"
+    assert out["initSub"] == "Ko"
+    assert out["initBtnText"] == "Zobrazit celá jména"
+
+    assert out["clickedAbs"] == "Filip Hanel (Hf)"
+    assert out["clickedSub"] == "Miloš Kodad (Ko)"
+    assert out["clickedBtnText"] == "Skrýt celá jména"
+    assert out["clickedAria"] == "true"
+
+    assert out["secondAbs"] == "Hf"
+    assert out["secondSub"] == "Ko"
+    assert out["secondBtnText"] == "Zobrazit celá jména"
+    assert out["secondAria"] == "false"
+
+
+def test_static_export_preserves_codes_01(tmp_path: Path) -> None:
+    """TEST-STATIC-EXPORT-PRESERVES-CODES-01: Ověří, že export_static_site() zachová OFFICIAL_TEACHER_CODES v dist/app.js."""
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.parser import parse_suplovani_html
+    from app.static_export import export_static_site
+
+    watch_dir = tmp_path / "exports"
+    watch_dir.mkdir()
+    db_path = tmp_path / "test_codes.db"
+    storage = Storage(db_path)
+
+    raw_file = (SAMPLES_DIR / "suplprehtrid.html").read_bytes()
+    res_file = parse_suplovani_html(raw_file, file_name="suplprehtrid.html")
+    storage.save_parse_result(res_file, file_hash="hash_codes", file_size=len(raw_file))
+
+    dist_dir = tmp_path / "dist"
+    cfg = AppConfig(db_path=db_path, watch_dir=watch_dir)
+    export_static_site(cfg, output_dir=dist_dir)
+
+    app_js = (dist_dir / "app.js").read_text(encoding="utf-8")
+    assert "const OFFICIAL_TEACHER_CODES = {" in app_js
+    assert '"Hf": "Hanel Filip"' in app_js
+    assert '"Ko": "Kodad Miloš"' in app_js
+    assert '"Bj": "Bajerová Markéta"' in app_js
+    assert "const OFFICIAL_TEACHER_CODES = {};" not in app_js
+
+
+def test_static_export_expansion_01(tmp_path: Path) -> None:
+    """TEST-STATIC-EXPORT-EXPANSION-01: Načtení dist/app.js a vyrenderování anonymizovaného dne na desktopu.
+    Kód 'Hf' se úspěšně expanduje na 'Filip Hanel (Hf)'.
+    """
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.parser import parse_suplovani_html
+    from app.static_export import export_static_site
+
+    watch_dir = tmp_path / "exports"
+    watch_dir.mkdir()
+    db_path = tmp_path / "test_exp.db"
+    storage = Storage(db_path)
+
+    raw_file = (SAMPLES_DIR / "suplprehtrid.html").read_bytes()
+    res_file = parse_suplovani_html(raw_file, file_name="suplprehtrid.html")
+    storage.save_parse_result(res_file, file_hash="hash_exp", file_size=len(raw_file))
+
+    dist_dir = tmp_path / "dist"
+    cfg = AppConfig(db_path=db_path, watch_dir=watch_dir)
+    export_static_site(cfg, output_dir=dist_dir)
+
+    script = f"""
+    const app = require('{dist_dir.resolve()}/app.js');
+    app.state.isMobile = false;
+
+    // Test s anonymizovaným dnem obsahujícím kód 'Hf'
+    const testDay = {{
+      absent_teachers: [
+        {{ teacher_code: 'Hf', teacher_full_name: 'Hf', hours: {{ 1: {{}} }} }}
+      ],
+      class_changes: []
+    }};
+    const strip = app.renderGridStrip(testDay);
+    const absentName = strip.children[0].children[1].children[0].children[0].textContent;
+
+    console.log(JSON.stringify({{ absentName }}));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["absentName"] == "Filip Hanel (Hf)"

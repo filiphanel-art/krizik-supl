@@ -39,7 +39,63 @@
     OSTATNI: "Změna"
   };
 
-  const OFFICIAL_TEACHER_CODES = {};
+  const OFFICIAL_TEACHER_CODES = {
+    "Ba": "Blažek Martin",
+    "Be": "Bernard Pavel",
+    "Bh": "Bláha Martin",
+    "Bj": "Bajerová Markéta",
+    "Br": "Bernardová Radana",
+    "Bu": "Bureš Pavel",
+    "Bř": "Bařinka Lukáš",
+    "Dr": "Ďurčo Daniel",
+    "Dv": "Drchota Viktor",
+    "Fj": "Fojtík Filip",
+    "Fo": "Fox Luděk",
+    "He": "Hájek Jiří",
+    "Hf": "Hanel Filip",
+    "Hi": "Hildebrand Jan",
+    "Hr": "Hausner Jakub",
+    "Jo": "Jobek Tomáš",
+    "Kk": "Kulhánek Eduard",
+    "Ko": "Kodad Miloš",
+    "Kr": "Klener Vavřinec",
+    "Ks": "Klaudis Jaromír",
+    "Ku": "Kubečková Marta",
+    "Ky": "Kynčlová Alice",
+    "Kč": "Kudrnáč Michael",
+    "Kš": "Kestřánek Tomáš",
+    "Le": "Ledvina David",
+    "Lx": "Linx David",
+    "Ma": "Marešová Marie",
+    "Mk": "Mikeš Jan",
+    "Mt": "Maňák Tomáš",
+    "Mu": "Mudruňková Anna",
+    "Ne": "Netušil Prokop",
+    "Nz": "Novák Zdeněk",
+    "On": "Ondrušková Lucia",
+    "Oč": "Očenášková Marie",
+    "Pa": "Prýmková Ivana",
+    "Pe": "Pleskačová Linda",
+    "Pf": "Pfeifer Jan",
+    "Pk": "Prýmek Josef",
+    "Pl": "Poul Richard",
+    "Ra": "Rak Aleš",
+    "Rh": "Roušová Helena",
+    "Rt": "Rottová Renata",
+    "Ry": "Ryba Adam",
+    "Rš": "Roušová Olga",
+    "Sl": "Sál Petr",
+    "So": "Sobotová Dana",
+    "Sy": "Suchý Zbyněk",
+    "Ti": "Tichá Tereza",
+    "Vl": "Valtr Pavel",
+    "Vo": "Vondrášková Terezie",
+    "Če": "Čermáková Irena",
+    "Šb": "Šebková Blanka",
+    "Še": "Ševčík David",
+    "Ši": "Šimková Veronika",
+    "Št": "Šťastný Ondřej"
+  };
 
   const NAME_TO_CODE = {};
   Object.keys(OFFICIAL_TEACHER_CODES).forEach((code) => {
@@ -54,13 +110,74 @@
     }
   });
 
-  function formatTeacherWithCode(fullName, code) {
-    const name = (fullName || "").trim();
-    const c = (code || "").trim();
+  function lookupTeacherFullName(codeOrName, dayOrMap, naturalOrder = true) {
+    const str = String(codeOrName || "").trim();
+    if (!str) return "";
+
+    let rawFullName = OFFICIAL_TEACHER_CODES[str] || "";
+
+    if (!rawFullName && dayOrMap && typeof dayOrMap === "object") {
+      if (Array.isArray(dayOrMap.derived_teachers)) {
+        const dt = dayOrMap.derived_teachers.find(
+          (t) => t.teacher_code === str && t.teacher_full_name && t.teacher_full_name !== str
+        );
+        if (dt) rawFullName = dt.teacher_full_name;
+      }
+      if (!rawFullName && Array.isArray(dayOrMap.absent_teachers)) {
+        const at = dayOrMap.absent_teachers.find(
+          (t) => t.teacher_code === str && t.teacher_full_name && t.teacher_full_name !== str
+        );
+        if (at) rawFullName = at.teacher_full_name;
+      }
+    }
+
+    if (!rawFullName && NAME_TO_CODE[str]) {
+      rawFullName = OFFICIAL_TEACHER_CODES[NAME_TO_CODE[str]] || str;
+    }
+    if (!rawFullName) {
+      const cleaned = str.replace(/^(?:Mgr\.|Ing\.|Bc\.|PaedDr\.|RNDr\.|PhDr\.|DiS\.)\s+/i, "").trim();
+      if (NAME_TO_CODE[cleaned]) {
+        rawFullName = OFFICIAL_TEACHER_CODES[NAME_TO_CODE[cleaned]] || cleaned;
+      }
+    }
+
+    if (!rawFullName) return str;
+
+    let cleanName = rawFullName.replace(/^(?:Mgr\.|Ing\.|Bc\.|PaedDr\.|RNDr\.|PhDr\.|DiS\.)\s+/i, "").trim();
+
+    if (naturalOrder) {
+      const parts = cleanName.split(/\s+/);
+      if (parts.length === 2) {
+        cleanName = parts[1] + " " + parts[0];
+      }
+    }
+
+    return cleanName;
+  }
+
+  function formatTeacherWithCode(fullNameOrCode, code, dayOrMap, naturalOrder = true) {
+    let name = (fullNameOrCode || "").trim();
+    const c = (code || lookupTeacherCode(name, dayOrMap) || "").trim();
+
+    if (!name && c) {
+      name = lookupTeacherFullName(c, dayOrMap, naturalOrder);
+    } else if (name && c && name === c) {
+      const resolved = lookupTeacherFullName(c, dayOrMap, naturalOrder);
+      if (resolved && resolved !== c) {
+        name = resolved;
+      }
+    } else if (name && naturalOrder) {
+      const cleaned = name.replace(/^(?:Mgr\.|Ing\.|Bc\.|PaedDr\.|RNDr\.|PhDr\.|DiS\.)\s+/i, "").trim();
+      const parts = cleaned.split(/\s+/);
+      if (parts.length === 2 && OFFICIAL_TEACHER_CODES[c] === parts[0] + " " + parts[1]) {
+        name = parts[1] + " " + parts[0];
+      }
+    }
+
     if (!name) return c ? "(" + c + ")" : "";
     if (!c) return name;
     if (name.includes("(" + c + ")")) return name;
-    if (name === c) return name; // V anonymizovaném režimu, kde je jméno shodné se zkratkou
+    if (name === c) return name;
     return name + " (" + c + ")";
   }
 
@@ -134,6 +251,45 @@
 
   const hasDom = typeof document !== "undefined" && typeof window !== "undefined";
 
+  function detectIsMobile(win) {
+    if (typeof state !== "undefined" && typeof state.isMobile === "boolean") {
+      return state.isMobile;
+    }
+    const w = win || (typeof window !== "undefined" ? window : null);
+    if (!w) return false;
+    try {
+      if (typeof w.matchMedia === "function") {
+        const mq = w.matchMedia("(max-width: 768px)");
+        if (mq && typeof mq.matches === "boolean") {
+          return mq.matches;
+        }
+      }
+      if (typeof w.innerWidth === "number" && w.innerWidth > 0) {
+        return w.innerWidth <= 768;
+      }
+    } catch (_e) {
+      // Graceful fallback
+    }
+    return false;
+  }
+
+  function detectDefaultView(win) {
+    const w = win || (typeof window !== "undefined" ? window : null);
+    if (!w) return "grid";
+    try {
+      if (typeof w.matchMedia === "function") {
+        if (w.matchMedia("(max-width: 768px)").matches) {
+          return "cards";
+        }
+      } else if (typeof w.innerWidth === "number" && w.innerWidth > 0 && w.innerWidth <= 768) {
+        return "cards";
+      }
+    } catch (_e) {
+      // Graceful fallback
+    }
+    return "grid";
+  }
+
   const state = {
     dates: [],
     selectedDate: "",
@@ -141,7 +297,9 @@
     status: null,
     selectedEntity: "",
     searchQuery: "",
-    activeView: "grid",
+    activeView: detectDefaultView(),
+    viewManuallySelected: false,
+    showFullTeacherNamesOnMobile: false,
     isStaticExport: typeof window !== "undefined" ? Boolean(window.__STATIC_EXPORT__) : false,
     isOffline: false
   };
@@ -184,6 +342,20 @@
       className: className || "",
       textContent: text !== undefined && text !== null ? String(text) : "",
       children: [],
+      attributes: {},
+      dataset: {},
+      setAttribute(name, val) {
+        this.attributes[name] = String(val);
+        if (name.startsWith("data-")) {
+          const camel = name
+            .slice(5)
+            .replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+          this.dataset[camel] = String(val);
+        }
+      },
+      getAttribute(name) {
+        return this.attributes[name] !== undefined ? this.attributes[name] : null;
+      },
       appendChild(child) {
         this.children.push(child);
         return child;
@@ -561,19 +733,77 @@
       return {
         teacher: teacher,
         teacherCode: code,
-        displayName: formatTeacherWithCode(teacher, code),
+        displayName: formatTeacherWithCode(teacher, code, dayOrMap, true),
         hoursText: formatHoursList(hours)
       };
     });
   }
 
-  function createTeacherPill(name, hoursText, variant) {
+  function createTeacherPill(fullName, hoursText, variant, shortCode) {
     const pill = el("div", "teacher-pill pill-" + variant);
-    pill.appendChild(el("span", "pill-name", name));
+    const shortText = shortCode || fullName;
+    if (typeof pill.setAttribute === "function") {
+      pill.setAttribute("data-full-name", fullName);
+      pill.setAttribute("data-short-name", shortText);
+    }
+    pill.dataset = pill.dataset || {};
+    pill.dataset.fullName = fullName;
+    pill.dataset.shortName = shortText;
+
+    const isMobile = detectIsMobile();
+    const showFull = !isMobile || Boolean(state.showFullTeacherNamesOnMobile);
+
+    const nameSpan = el("span", "pill-name", showFull ? fullName : shortText);
+    pill.appendChild(nameSpan);
+
     if (hoursText) {
       pill.appendChild(el("span", "pill-hours", hoursText));
     }
     return pill;
+  }
+
+  function toggleStripTeacherNames(strip, showFull) {
+    if (!strip) return;
+    const isFull = typeof showFull === "boolean" ? showFull : Boolean(state.showFullTeacherNamesOnMobile);
+
+    if (typeof strip.querySelectorAll === "function") {
+      const pills = strip.querySelectorAll(".teacher-pill");
+      pills.forEach((pill) => {
+        const nameSpan = pill.querySelector ? pill.querySelector(".pill-name") : null;
+        const fullName = (pill.dataset && pill.dataset.fullName) || pill.getAttribute("data-full-name") || "";
+        const shortName = (pill.dataset && pill.dataset.shortName) || pill.getAttribute("data-short-name") || "";
+        if (nameSpan) {
+          nameSpan.textContent = isFull ? fullName : shortName;
+        }
+      });
+      const btns = strip.querySelectorAll(".btn-strip-toggle");
+      btns.forEach((btn) => {
+        btn.textContent = isFull ? "Skrýt celá jména" : "Zobrazit celá jména";
+        if (typeof btn.setAttribute === "function") {
+          btn.setAttribute("aria-expanded", isFull ? "true" : "false");
+        }
+      });
+    } else {
+      function walkPills(node) {
+        if (!node) return;
+        if (node.className && node.className.includes("teacher-pill")) {
+          const fullName = (node.dataset && node.dataset.fullName) || (node.getAttribute && node.getAttribute("data-full-name")) || "";
+          const shortName = (node.dataset && node.dataset.shortName) || (node.getAttribute && node.getAttribute("data-short-name")) || "";
+          const nameSpan = (node.children || []).find((c) => c.className && c.className.includes("pill-name"));
+          if (nameSpan) {
+            nameSpan.textContent = isFull ? fullName : shortName;
+          }
+        }
+        if (node.className && node.className.includes("btn-strip-toggle")) {
+          node.textContent = isFull ? "Skrýt celá jména" : "Zobrazit celá jména";
+          if (typeof node.setAttribute === "function") {
+            node.setAttribute("aria-expanded", isFull ? "true" : "false");
+          }
+        }
+        (node.children || []).forEach(walkPills);
+      }
+      walkPills(strip);
+    }
   }
 
   function renderGridStrip(day) {
@@ -581,7 +811,23 @@
 
     // Blok 1: Nepřítomní učitelé
     const tBox = el("div", "strip-box strip-teachers");
-    tBox.appendChild(el("div", "strip-header", "Nepřítomní učitelé:"));
+    const tHeader = el("div", "strip-header");
+    tHeader.appendChild(el("span", "strip-header-title", "Nepřítomní učitelé:"));
+
+    const btnToggle = el("button", "btn-strip-toggle");
+    if (typeof btnToggle.setAttribute === "function") {
+      btnToggle.setAttribute("type", "button");
+      btnToggle.setAttribute("aria-expanded", state.showFullTeacherNamesOnMobile ? "true" : "false");
+    }
+    btnToggle.type = "button";
+    btnToggle.textContent = state.showFullTeacherNamesOnMobile ? "Skrýt celá jména" : "Zobrazit celá jména";
+    btnToggle.onclick = function () {
+      state.showFullTeacherNamesOnMobile = !state.showFullTeacherNamesOnMobile;
+      toggleStripTeacherNames(strip, state.showFullTeacherNamesOnMobile);
+    };
+    tHeader.appendChild(btnToggle);
+    tBox.appendChild(tHeader);
+
     const tPills = el("div", "strip-pills");
     const absT = (day && day.absent_teachers ? day.absent_teachers : []).slice().sort((a, b) =>
       (a.teacher_full_name || "").localeCompare(b.teacher_full_name || "", "cs")
@@ -592,9 +838,10 @@
       absT.forEach((a) => {
         const rawName = a.teacher_full_name || a.teacher_normalized_name || a.teacher_code || "";
         const code = a.teacher_code || lookupTeacherCode(rawName, day);
-        const name = formatTeacherWithCode(rawName, code);
+        const fullNameWithCode = formatTeacherWithCode(rawName, code, day, true);
+        const shortCode = code || rawName;
         const hours = Object.keys(a.hours || {}).map(Number);
-        tPills.appendChild(createTeacherPill(name, formatHoursList(hours), "absent"));
+        tPills.appendChild(createTeacherPill(fullNameWithCode, formatHoursList(hours), "absent", shortCode));
       });
     }
     tBox.appendChild(tPills);
@@ -609,7 +856,9 @@
       sPills.appendChild(el("span", "strip-empty", "žádní"));
     } else {
       subTeachers.forEach((st) => {
-        sPills.appendChild(createTeacherPill(st.displayName || st.teacher, st.hoursText, "sub"));
+        const fullNameWithCode = st.displayName || formatTeacherWithCode(st.teacher, st.teacherCode, day, true);
+        const shortCode = st.teacherCode || st.teacher;
+        sPills.appendChild(createTeacherPill(fullNameWithCode, st.hoursText, "sub", shortCode));
       });
     }
     sBox.appendChild(sPills);
@@ -884,9 +1133,22 @@
   function switchView(viewName) {
     if (viewName !== "grid" && viewName !== "cards") return;
     state.activeView = viewName;
+    state.viewManuallySelected = true;
     kiosk.pos = 0;
     setScrollTop(0);
     renderAll();
+  }
+
+  function syncInitialViewDom() {
+    if (!hasDom) return;
+    renderViewTabs();
+    if (state.activeView === "cards") {
+      if (els.gridView) els.gridView.classList.add("hidden");
+      if (els.cardsView) els.cardsView.classList.remove("hidden");
+    } else {
+      if (els.cardsView) els.cardsView.classList.add("hidden");
+      if (els.gridView) els.gridView.classList.remove("hidden");
+    }
   }
 
   function renderViewTabs() {
@@ -1161,17 +1423,23 @@
       });
     }
 
+    syncInitialViewDom();
     loadData("", false);
     setupLiveUpdates();
   }
 
   if (typeof window !== "undefined") {
+    window.detectDefaultView = detectDefaultView;
+    window.detectIsMobile = detectIsMobile;
+    window.syncInitialViewDom = syncInitialViewDom;
     window.formatHoursList = formatHoursList;
     window.extractSubstitutingTeachers = extractSubstitutingTeachers;
     window.createTeacherPill = createTeacherPill;
     window.renderGridStrip = renderGridStrip;
+    window.toggleStripTeacherNames = toggleStripTeacherNames;
     window.formatTeacherWithCode = formatTeacherWithCode;
     window.lookupTeacherCode = lookupTeacherCode;
+    window.lookupTeacherFullName = lookupTeacherFullName;
     window.OFFICIAL_TEACHER_CODES = OFFICIAL_TEACHER_CODES;
     window.formatDateTimeCzech = formatDateTimeCzech;
     window.formatSourceBadgeText = formatSourceBadgeText;
@@ -1186,12 +1454,17 @@
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
+      detectDefaultView,
+      detectIsMobile,
+      syncInitialViewDom,
       formatHoursList,
       extractSubstitutingTeachers,
       createTeacherPill,
       renderGridStrip,
+      toggleStripTeacherNames,
       formatTeacherWithCode,
       lookupTeacherCode,
+      lookupTeacherFullName,
       OFFICIAL_TEACHER_CODES,
       formatDateTimeCzech,
       formatSourceBadgeText,

@@ -1,6 +1,23 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Zobrazení celých jmen pedagogů se zkratkami v přirozeném slovosledu `Jméno Příjmení (Zkratka)` (např. `Filip Hanel (Hf)`) na desktopu v blocích „Nepřítomní učitelé“ a „Suplující učitelé“.
+- Funkce `lookupTeacherFullName(codeOrName, dayOrMap, naturalOrder = true)` pro spolehlivou expanzi oficiálních zkratek učitelů na celá jména.
+- Helper `detectIsMobile(win)` a přepínač zobrazení celých jmen / zkratek na mobilních zařízeních (`.btn-strip-toggle` v hlavičce stripu nepřítomných učitelů).
+- Funkce `toggleStripTeacherNames(strip, showFull)` umožňující okamžité přepnutí všech štítků vyučujících na mobilním zařízení mezi úspornou zkratkou a plným jménem.
+- Nové unit a integrační testy v `tests/test_web_and_anonymization.py`: `TEST-EXPAND-TEACHER-CODE-01`, `TEST-STRIP-DESKTOP-FULL-NAMES-01`, `TEST-STRIP-MOBILE-DEFAULT-ABBR-01`, `TEST-STRIP-MOBILE-TOGGLE-CLICK-01`, `TEST-STATIC-EXPORT-PRESERVES-CODES-01`, `TEST-STATIC-EXPORT-EXPANSION-01` a `TEST-STATIC-EXPORT-VERSION-17-01`.
+
+### Changed
+- `app/static_export.py` zachovává kompletní číselník `OFFICIAL_TEACHER_CODES` v `dist/app.js` pro klientskou expanzi kódů na desktopu a po kliknutí na mobilu.
+- Tlačítko `.btn-strip-toggle` je na desktopu (`> 768px`) skryto pomocí `@media (min-width: 769px) { display: none !important; }`.
+- Verzování assetů povýšeno na `styles.css?v=17` a `app.js?v=17` v `app/static/index.html` i `dist/index.html`.
+- Aktualizován statický export `dist/` a přegenerována PDF dokumentace v `docs/`.
+
+### Changed
+- Verzování assetů povýšeno na `styles.css?v=16` a `app.js?v=16` v šablonách i statickém exportu.
+- Aktualizován statický export `dist/` a přegenerována PDF dokumentace v `docs/`.
+
 ### Removed
 - Kompletně odstraněn element `#source-badge` ("Zdroj: Soubor / Web") z `app/static/index.html` i `dist/index.html`; v `.heading-with-source` zůstává pouze čistý nadpis dne `#day-heading`.
 
