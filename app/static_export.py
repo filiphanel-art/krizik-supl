@@ -62,15 +62,16 @@ def export_static_site(
         raise RuntimeError("Nelze vložit static-mode.js do index.html (nenalezen script app.js).")
     (output_dir / "index.html").write_text(index_html, encoding="utf-8")
 
-    # Načti všechny dny, anonymizuj je a ulož jako JSON
-    dates = storage.list_available_dates()
+    # Načti řadu školního týdne (Po-Pá + Po)
+    dates = storage.list_school_week_dates()
     code_map = dict(config.teacher_codes)
     code_map.update(storage.get_teacher_directory())
 
     exported_days = 0
     total_changes = 0
-    for d_info in dates:
-        d_str = d_info["date"]
+    all_available = storage.list_available_dates()
+    dates_to_export = {d["date"] for d in dates if d.get("has_data")}.union(d["date"] for d in all_available)
+    for d_str in sorted(dates_to_export):
         day_obj = storage.get_day(d_str)
         if day_obj is None:
             continue

@@ -67,17 +67,27 @@ class EventBroadcaster:
             self._queues.discard(q)
 
 
-def _choose_default_date(dates: list[dict[str, str]]) -> str:
+def _choose_default_date(dates: list[dict[str, Any]]) -> str:
     if not dates:
         return ""
     today_iso = datetime.now(PRAGUE_TZ).date().isoformat()
+    # 1. Preferuj dnešek, pokud má vypsané suplování (has_data != False)
     for d in dates:
-        if d["date"] == today_iso:
-            return d["date"]
+        if d["date"] == today_iso and d.get("has_data") is not False:
+            return str(d["date"])
+    # 2. Preferuj nejbližší budoucí den s daty
+    for d in dates:
+        if d["date"] >= today_iso and d.get("has_data") is not False:
+            return str(d["date"])
+    # 3. Preferuj jakýkoliv den s daty
+    for d in dates:
+        if d.get("has_data") is not False:
+            return str(d["date"])
+    # 4. Fallback na budoucí den nebo první den v seznamu
     for d in dates:
         if d["date"] >= today_iso:
-            return d["date"]
-    return dates[-1]["date"]
+            return str(d["date"])
+    return str(dates[0]["date"])
 
 
 def _is_ip_allowed(client_host: str | None, allowed_cidrs: list[str]) -> bool:
@@ -340,7 +350,7 @@ def create_app(
     async def api_schedule(
         date: str | None = Query(default=None, description="Datum ve formátu YYYY-MM-DD"),
     ) -> JSONResponse:
-        dates = storage.list_available_dates()
+        dates = storage.list_school_week_dates(reference_date=date)
         selected_date = date if (date and any(d["date"] == date for d in dates)) else _choose_default_date(dates)
 
         day_obj = storage.get_day(selected_date) if selected_date else None

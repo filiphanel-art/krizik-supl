@@ -1,8 +1,22 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- **Kritická oprava klientského běhu (`dataset` getter bug)**: V `app/static/app.js` a `dist/app.js` v `createTeacherPill` odstraněno neplatné přiřazení do read-only getteru `pill.dataset = pill.dataset || {};`, které v prohlížečích způsobovalo `TypeError: Cannot set property dataset`. Nahrazeno bezpečným `setAttribute("data-full-name", fullName)` a ošetřeným zápisem do `dataset` s `try/catch`. V `toggleStripTeacherNames` sjednoceno bezpečné čtení atributů z `getAttribute` i `dataset`.
+
 ### Added
-- Zobrazení celých jmen pedagogů se zkratkami v přirozeném slovosledu `Jméno Příjmení (Zkratka)` (např. `Filip Hanel (Hf)`) na desktopu v blocích „Nepřítomní učitelé“ a „Suplující učitelé“.
+- **Oficiální název školy**: Nastaven na kratší jednotnou formu **„VOŠ a SPŠE Františka Křižíka“** v hlavičce `<h1>` (`#school-name`), v `app/parser_web.py` a normalizací v klientském JS.
+- **Patička s copyrightem**: Přidána responzivní patička `<footer class="app-footer">` s textem `© 2026 VOŠ a SPŠE Františka Křižíka · Všechna práva vyhrazena`. V celoobrazovkovém režimu (kiosk) je automaticky skryta (`body.kiosk .app-footer { display: none !important; }`).
+- **6denní řada školního týdne (Po–Pá + Po příštího týdne)**:
+  - Implementována funkce `compute_school_week_dates(reference_date, stored_days)` a metoda `Storage.list_school_week_dates(reference_date)` v `app/database.py`, generující dny s offsety `[0, 1, 2, 3, 4, 7]` (např. 9. 11. – 13. 11. + 16. 11.) s příznakem `has_data: bool`.
+  - Endpoint `/api/schedule` a statický export `dist/data/index.json` používají toto 6denní školní okno.
+  - V klientském JS (`renderDateTabs`) mají dny bez suplování (`has_data: false`) třídu `.disabled`, atributy `disabled` a `aria-disabled="true"`, tooltip a zakázané klikání.
+  - Funkce `chooseDefaultDate` automaticky preferuje nejbližší den s dostupnými daty (`has_data !== false`).
+- **Nové testovací specifikace**: `TEST-FIX-DATASET-GETTER-01` (ověření v reálném headless prohlížeči Chromium přes Playwright), `TEST-SCHOOL-NAME-HEADER-01`, `TEST-FOOTER-HTML-01`, `TEST-CALENDAR-MONDAY-RANGE-01`, `TEST-CALENDAR-FLAGS-01`, `TEST-UI-DATE-TABS-DISABLED-01` a `TEST-STATIC-EXPORT-VERSION-18-01`.
+
+### Changed
+- Verzování assetů povýšeno na `styles.css?v=18` a `app.js?v=18` v šablonách i statickém exportu.
+- Aktualizován statický export `dist/` a přegenerována PDF dokumentace v `docs/`.
 - Funkce `lookupTeacherFullName(codeOrName, dayOrMap, naturalOrder = true)` pro spolehlivou expanzi oficiálních zkratek učitelů na celá jména.
 - Helper `detectIsMobile(win)` a přepínač zobrazení celých jmen / zkratek na mobilních zařízeních (`.btn-strip-toggle` v hlavičce stripu nepřítomných učitelů).
 - Funkce `toggleStripTeacherNames(strip, showFull)` umožňující okamžité přepnutí všech štítků vyučujících na mobilním zařízení mezi úspornou zkratkou a plným jménem.

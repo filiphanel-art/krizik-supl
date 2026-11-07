@@ -50,7 +50,7 @@ def test_web_endpoints_pwa_and_security_headers(tmp_path: Path) -> None:
         r_sched = client.get("/api/schedule?date=2026-11-05")
         assert r_sched.status_code == 200
         payload = r_sched.json()
-        assert len(payload["dates"]) == 5
+        assert len(payload["dates"]) == 6
         assert payload["selected_date"] == "2026-11-05"
         assert payload["day"]["day_name"] == "Čtvrtek"
         assert len(payload["day"]["class_changes"]) == 38
@@ -396,8 +396,8 @@ def test_strip_04_integration_dom_and_api_strip_blocks(tmp_path: Path) -> None:
 
         r_index = client.get("/")
         assert r_index.status_code == 200
-        assert 'href="styles.css?v=17"' in r_index.text
-        assert 'src="app.js?v=17"' in r_index.text
+        assert ("href=\"styles.css?v=17\"" in r_index.text or "href=\"styles.css?v=18\"" in r_index.text)
+        assert ("src=\"app.js?v=17\"" in r_index.text or "src=\"app.js?v=18\"" in r_index.text)
 
 
 def test_strip_05_anonymization_and_security_pills(tmp_path: Path) -> None:
@@ -1293,7 +1293,7 @@ def test_static_export_no_hidden_notes_01(tmp_path: Path) -> None:
     assert "source-badge source-file" not in index_html
     assert "Zdroj: Soubor (Bakaláři export)" not in index_html
     assert "Načítám zdroj…" not in index_html
-    assert "?v=17" in index_html
+    assert ("?v=17" in index_html or "?v=18" in index_html)
 
     # c) dist/data/day-2026-11-06.json obsahuje čas v exported_at_display a data_source = 'web'
     fri_file = dist_dir / "data" / "day-2026-11-06.json"
@@ -2265,9 +2265,9 @@ def test_static_export_no_source_badge_01(tmp_path: Path) -> None:
     assert "Old (Seznam karet)" not in index_html
     assert "Přehled po třídách" in index_html
     assert 'title="Zobrazit rozpis změn rozdělený po jednotlivých třídách"' in index_html
-    assert "?v=17" in index_html
-    assert "styles.css?v=17" in index_html
-    assert "app.js?v=17" in index_html
+    assert ("?v=17" in index_html or "?v=18" in index_html)
+    assert ("styles.css?v=17" in index_html or "styles.css?v=18" in index_html)
+    assert ("app.js?v=17" in index_html or "app.js?v=18" in index_html)
 
 
 def test_detect_view_mobile_01() -> None:
@@ -2744,9 +2744,9 @@ def test_static_export_version_17_01(tmp_path: Path) -> None:
     export_static_site(cfg, output_dir=dist_dir)
 
     index_html = (dist_dir / "index.html").read_text(encoding="utf-8")
-    assert "?v=17" in index_html
-    assert "styles.css?v=17" in index_html
-    assert "app.js?v=17" in index_html
+    assert ("?v=17" in index_html or "?v=18" in index_html)
+    assert ("styles.css?v=17" in index_html or "styles.css?v=18" in index_html)
+    assert ("app.js?v=17" in index_html or "app.js?v=18" in index_html)
 
 
 def test_expand_teacher_code_01() -> None:
@@ -3018,3 +3018,199 @@ def test_static_export_expansion_01(tmp_path: Path) -> None:
     """
     out = json.loads(_run_node_script(script))
     assert out["absentName"] == "Filip Hanel (Hf)"
+
+
+def test_calendar_monday_range_01() -> None:
+    """TEST-CALENDAR-MONDAY-RANGE-01: Výpočet řady pro pondělí 9. 11. a víkendy.
+    Vrátí přesně 6 prvků: 9. 11. (Po) až 13. 11. (Pá) + 16. 11. (Po).
+    """
+    from datetime import date
+
+    from app.database import compute_school_week_dates
+
+    # 1. Pro pondělí 9. 11. 2026
+    dates = compute_school_week_dates(reference_date=date(2026, 11, 9))
+    assert len(dates) == 6
+    expected_dates = ["2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13", "2026-11-16"]
+    assert [d["date"] for d in dates] == expected_dates
+    assert [d["day_name"] for d in dates] == ["Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Pondělí"]
+
+    # 2. Pro víkend (sobota 7. 11. 2026) -> vezme nadcházející pondělí 9. 11.
+    dates_sat = compute_school_week_dates(reference_date=date(2026, 11, 7))
+    assert [d["date"] for d in dates_sat] == expected_dates
+
+    # 3. Pro víkend (neděle 8. 11. 2026) -> vezme nadcházející pondělí 9. 11.
+    dates_sun = compute_school_week_dates(reference_date=date(2026, 11, 8))
+    assert [d["date"] for d in dates_sun] == expected_dates
+
+
+def test_calendar_flags_01() -> None:
+    """TEST-CALENDAR-FLAGS-01: Kontrola příznaků has_data.
+    Pro 9. 11. je has_data: true, pro ostatní dny has_data: false.
+    """
+    from datetime import date
+
+    from app.database import compute_school_week_dates
+
+    stored = [{"date": "2026-11-09", "day_name": "Pondělí", "data_source": "web"}]
+    dates = compute_school_week_dates(reference_date=date(2026, 11, 9), stored_days=stored)
+    assert len(dates) == 6
+
+    d_mon = next(d for d in dates if d["date"] == "2026-11-09")
+    assert d_mon["has_data"] is True
+    assert d_mon["data_source"] == "web"
+
+    for d in dates:
+        if d["date"] != "2026-11-09":
+            assert d["has_data"] is False
+
+
+def test_school_name_header_01() -> None:
+    """TEST-SCHOOL-NAME-HEADER-01: Kontrola textu #school-name a výchozího názvu školy."""
+    from bs4 import BeautifulSoup
+
+    from app.parser_web import parse_web_zmeny_html
+
+    html_path = Path(__file__).resolve().parent.parent / "app" / "static" / "index.html"
+    soup = BeautifulSoup(html_path.read_text(encoding="utf-8"), "html.parser")
+    header_el = soup.find(id="school-name")
+    assert header_el is not None
+    assert header_el.get_text(strip=True) == "VOŠ a SPŠE Františka Křižíka"
+
+    # Výchozí název školy ve web parseru
+    res = parse_web_zmeny_html('<html><body><input id="DateEdit_I" value="9.11.2026"/><table></table></body></html>')
+    assert res.school_name == "VOŠ a SPŠE Františka Křižíka"
+
+
+def test_footer_html_01() -> None:
+    """TEST-FOOTER-HTML-01: Kontrola patičky .app-footer."""
+    from bs4 import BeautifulSoup
+
+    html_path = Path(__file__).resolve().parent.parent / "app" / "static" / "index.html"
+    soup = BeautifulSoup(html_path.read_text(encoding="utf-8"), "html.parser")
+    footer = soup.find("footer", class_="app-footer")
+    assert footer is not None
+    text = footer.get_text(separator=" ", strip=True)
+    assert "VOŠ a SPŠE Františka Křižíka" in text
+    assert "Všechna práva vyhrazena" in text
+
+
+def test_static_export_version_18_01() -> None:
+    """TEST-STATIC-EXPORT-VERSION-18-01: Verzování assetů styles.css?v=18 a app.js?v=18."""
+    html_path = Path(__file__).resolve().parent.parent / "app" / "static" / "index.html"
+    content = html_path.read_text(encoding="utf-8")
+    assert 'href="styles.css?v=18"' in content
+    assert 'src="app.js?v=18"' in content
+
+
+def test_ui_date_tabs_disabled_01() -> None:
+    """TEST-UI-DATE-TABS-DISABLED-01: Vykreslení záložek v DOMu - dny bez dat mají třídu .disabled a disabled atribut."""
+    script = """
+    const app = require('./app/static/app.js');
+    const container = {
+      children: [],
+      replaceChildren() { this.children = []; },
+      appendChild(c) { this.children.push(c); return c; }
+    };
+    app.els.dateTabs = container;
+    app.state.dates = [
+      { date: '2026-11-09', day_name: 'Pondělí', has_data: true },
+      { date: '2026-11-10', day_name: 'Úterý', has_data: false }
+    ];
+    app.state.selectedDate = '2026-11-09';
+    app.renderDateTabs();
+
+    const tabs = container.children;
+    const tab0 = {
+      disabled: Boolean(tabs[0].disabled),
+      hasDisabledClass: tabs[0].className.includes('disabled'),
+      ariaDisabled: tabs[0].getAttribute('aria-disabled'),
+      title: tabs[0].title || ''
+    };
+    const tab1 = {
+      disabled: Boolean(tabs[1].disabled),
+      hasDisabledClass: tabs[1].className.includes('disabled'),
+      ariaDisabled: tabs[1].getAttribute('aria-disabled'),
+      title: tabs[1].title || ''
+    };
+    console.log(JSON.stringify({ tab0, tab1 }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["tab0"]["disabled"] is False
+    assert out["tab0"]["hasDisabledClass"] is False
+
+    assert out["tab1"]["disabled"] is True
+    assert out["tab1"]["hasDisabledClass"] is True
+    assert out["tab1"]["ariaDisabled"] == "true"
+    assert "zatím není suplování" in out["tab1"]["title"]
+
+
+def test_fix_dataset_getter_01(tmp_path: Path) -> None:
+    """TEST-FIX-DATASET-GETTER-01: Spuštění reálného prohlížeče Chromium na stránce.
+    Nulový výskyt chyby Cannot set property dataset, tabulka a karty se úspěšně vykreslí.
+    """
+    import http.server
+    import threading
+    from typing import Any
+
+    from playwright.sync_api import sync_playwright
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.parser import parse_suplovani_html
+    from app.static_export import export_static_site
+
+    watch_dir = tmp_path / "exports"
+    watch_dir.mkdir()
+    db_path = tmp_path / "browser_test.db"
+    storage = Storage(db_path)
+
+    raw_file = (SAMPLES_DIR / "suplprehtrid.html").read_bytes()
+    res_file = parse_suplovani_html(raw_file, file_name="suplprehtrid.html")
+    storage.save_parse_result(res_file, file_hash="hash_pw", file_size=len(raw_file))
+
+    dist_dir = tmp_path / "dist"
+    cfg = AppConfig(db_path=db_path, watch_dir=watch_dir)
+    export_static_site(cfg, output_dir=dist_dir)
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, directory=str(dist_dir), **kwargs)
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    port = server.server_port
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+
+    page_errors: list[str] = []
+    console_messages: list[str] = []
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.on("pageerror", lambda err: page_errors.append(str(err)))
+            page.on("console", lambda msg: console_messages.append(f"{msg.type}: {msg.text}"))
+
+            page.goto(f"http://127.0.0.1:{port}/index.html")
+            page.wait_for_selector(".date-tab", timeout=5000)
+
+            school_title = page.locator("#school-name").inner_text()
+            footer_text = page.locator(".app-footer").inner_text()
+            date_tabs_count = page.locator(".date-tab").count()
+
+            browser.close()
+    finally:
+        server.shutdown()
+
+    # Žádná chyba typu Cannot set property dataset
+    dataset_errors = [e for e in page_errors if "dataset" in e or "Cannot set property" in e]
+    assert len(dataset_errors) == 0, f"Nalezena chyba dataset: {page_errors}"
+    assert len(page_errors) == 0, f"Neočekávané chyby v prohlížeči: {page_errors}"
+    assert "VOŠ a SPŠE Františka Křižíka" in school_title
+    assert "VOŠ a SPŠE Františka Křižíka" in footer_text
+    assert date_tabs_count == 6
+

@@ -359,7 +359,8 @@
       appendChild(child) {
         this.children.push(child);
         return child;
-      }
+      },
+      addEventListener(_evt, _fn) {}
     };
   }
 
@@ -379,11 +380,15 @@
   function chooseDefaultDate(datesList) {
     if (!datesList || datesList.length === 0) return "";
     const todayIso = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Prague" });
-    const exact = datesList.find((d) => d.date === todayIso);
+    const exact = datesList.find((d) => d.date === todayIso && d.has_data !== false);
     if (exact) return exact.date;
-    const future = datesList.find((d) => d.date >= todayIso);
+    const future = datesList.find((d) => d.date >= todayIso && d.has_data !== false);
     if (future) return future.date;
-    return datesList[datesList.length - 1].date;
+    const anyData = datesList.find((d) => d.has_data !== false);
+    if (anyData) return anyData.date;
+    const futureFallback = datesList.find((d) => d.date >= todayIso);
+    if (futureFallback) return futureFallback.date;
+    return datesList[0] ? datesList[0].date : "";
   }
 
   async function fetchSchedulePayload(targetDate) {
@@ -518,7 +523,17 @@
     const st = state.status || {};
 
     if (day && day.school_name) {
-      els.schoolName.textContent = day.school_name;
+      let sName = day.school_name;
+      if (
+        sName.includes("Františka Křižíka") ||
+        sName.includes("Křižík") ||
+        sName.includes("Vyšší odborná škola")
+      ) {
+        sName = "VOŠ a SPŠE Františka Křižíka";
+      }
+      els.schoolName.textContent = sName;
+    } else if (els.schoolName) {
+      els.schoolName.textContent = "VOŠ a SPŠE Františka Křižíka";
     }
 
     const expDisp =
@@ -588,38 +603,45 @@
   function renderDateTabs() {
     els.dateTabs.replaceChildren();
     state.dates.forEach((d) => {
+      const isDisabled = d.has_data === false;
       const btn = el(
         "button",
-        "date-tab" + (d.date === state.selectedDate ? " active" : ""),
+        "date-tab" + (d.date === state.selectedDate ? " active" : "") + (isDisabled ? " disabled" : ""),
         formatShortDate(d.date, d.day_name)
       );
       btn.type = "button";
       btn.setAttribute("role", "tab");
       btn.setAttribute("aria-selected", d.date === state.selectedDate ? "true" : "false");
-      btn.addEventListener("click", () => {
-        // Okamžitá aktivace záložky bez prodlevy
-        const allTabs = els.dateTabs.querySelectorAll
-          ? els.dateTabs.querySelectorAll(".date-tab")
-          : (els.dateTabs.children || []);
-        for (let i = 0; i < allTabs.length; i++) {
-          if (allTabs[i].classList && allTabs[i].classList.remove) {
-            allTabs[i].classList.remove("active");
+      if (isDisabled) {
+        btn.disabled = true;
+        btn.setAttribute("aria-disabled", "true");
+        btn.title = "Pro tento den zatím není suplování vypsáno";
+      } else if (typeof btn.addEventListener === "function") {
+        btn.addEventListener("click", () => {
+          // Okamžitá aktivace záložky bez prodlevy
+          const allTabs = els.dateTabs.querySelectorAll
+            ? els.dateTabs.querySelectorAll(".date-tab")
+            : (els.dateTabs.children || []);
+          for (let i = 0; i < allTabs.length; i++) {
+            if (allTabs[i].classList && allTabs[i].classList.remove) {
+              allTabs[i].classList.remove("active");
+            }
+            if (allTabs[i].setAttribute) {
+              allTabs[i].setAttribute("aria-selected", "false");
+            }
           }
-          if (allTabs[i].setAttribute) {
-            allTabs[i].setAttribute("aria-selected", "false");
+          if (btn.classList && btn.classList.add) {
+            btn.classList.add("active");
           }
-        }
-        if (btn.classList && btn.classList.add) {
-          btn.classList.add("active");
-        }
-        btn.setAttribute("aria-selected", "true");
+          btn.setAttribute("aria-selected", "true");
 
-        // Okamžitá změna třídy i textu štítku s časem (0 ms prodleva)
-        updateSourceBadge(d);
+          // Okamžitá změna třídy i textu štítku s časem (0 ms prodleva)
+          updateSourceBadge(d);
 
-        state.selectedDate = d.date;
-        loadData(d.date, false);
-      });
+          state.selectedDate = d.date;
+          loadData(d.date, false);
+        });
+      }
       els.dateTabs.appendChild(btn);
     });
   }
@@ -746,9 +768,14 @@
       pill.setAttribute("data-full-name", fullName);
       pill.setAttribute("data-short-name", shortText);
     }
-    pill.dataset = pill.dataset || {};
-    pill.dataset.fullName = fullName;
-    pill.dataset.shortName = shortText;
+    if (pill.dataset) {
+      try {
+        pill.dataset.fullName = fullName;
+        pill.dataset.shortName = shortText;
+      } catch (_e) {
+        // Ignoruj v prostředích se striktním getterem
+      }
+    }
 
     const isMobile = detectIsMobile();
     const showFull = !isMobile || Boolean(state.showFullTeacherNamesOnMobile);
@@ -770,8 +797,8 @@
       const pills = strip.querySelectorAll(".teacher-pill");
       pills.forEach((pill) => {
         const nameSpan = pill.querySelector ? pill.querySelector(".pill-name") : null;
-        const fullName = (pill.dataset && pill.dataset.fullName) || pill.getAttribute("data-full-name") || "";
-        const shortName = (pill.dataset && pill.dataset.shortName) || pill.getAttribute("data-short-name") || "";
+        const fullName = (pill.getAttribute && pill.getAttribute("data-full-name")) || (pill.dataset && pill.dataset.fullName) || "";
+        const shortName = (pill.getAttribute && pill.getAttribute("data-short-name")) || (pill.dataset && pill.dataset.shortName) || "";
         if (nameSpan) {
           nameSpan.textContent = isFull ? fullName : shortName;
         }
@@ -787,8 +814,8 @@
       function walkPills(node) {
         if (!node) return;
         if (node.className && node.className.includes("teacher-pill")) {
-          const fullName = (node.dataset && node.dataset.fullName) || (node.getAttribute && node.getAttribute("data-full-name")) || "";
-          const shortName = (node.dataset && node.dataset.shortName) || (node.getAttribute && node.getAttribute("data-short-name")) || "";
+          const fullName = (node.getAttribute && node.getAttribute("data-full-name")) || (node.dataset && node.dataset.fullName) || "";
+          const shortName = (node.getAttribute && node.getAttribute("data-short-name")) || (node.dataset && node.dataset.shortName) || "";
           const nameSpan = (node.children || []).find((c) => c.className && c.className.includes("pill-name"));
           if (nameSpan) {
             nameSpan.textContent = isFull ? fullName : shortName;
@@ -1447,6 +1474,8 @@
     window.switchView = switchView;
     window.renderCards = renderCards;
     window.renderViewTabs = renderViewTabs;
+    window.renderDateTabs = renderDateTabs;
+    window.chooseDefaultDate = chooseDefaultDate;
     window.renderAll = renderAll;
     window.state = state;
     window.els = els;
@@ -1472,6 +1501,8 @@
       switchView,
       renderCards,
       renderViewTabs,
+      renderDateTabs,
+      chooseDefaultDate,
       renderAll,
       state,
       els

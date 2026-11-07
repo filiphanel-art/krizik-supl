@@ -91,7 +91,7 @@ def parse_web_zmeny_html(
     school_name = (
         school_elem.get_text(strip=True)
         if isinstance(school_elem, Tag)
-        else "Vyšší odborná škola a Střední průmyslová škola elektrotechnická Františka Křižíka"
+        else "VOŠ a SPŠE Františka Křižíka"
     )
 
     teacher_dir: dict[str, str] = dict(known_teachers or {})

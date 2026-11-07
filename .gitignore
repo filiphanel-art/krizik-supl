@@ -10,3 +10,4 @@ __pycache__/
 /logs/
 /watch_exports/
 .DS_Store
+*.db

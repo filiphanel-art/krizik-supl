@@ -212,6 +212,20 @@ body {
   border-color: var(--primary);
 }
 
+.date-tab.disabled,
+.date-tab:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #cbd5e1;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.date-tab.disabled:hover,
+.date-tab:disabled:hover {
+  background: #f1f5f9;
+}
+
 .date-tab:focus-visible,
 .view-tab:focus-visible,
 .filter-select:focus-visible,
@@ -634,7 +648,8 @@ body {
 /* Režim celé obrazovky (kiosk): bez horní lišty a ovládacích prvků */
 body.kiosk .app-header,
 body.kiosk .date-tabs,
-body.kiosk .inline-filter {
+body.kiosk .inline-filter,
+body.kiosk .app-footer {
   display: none !important;
 }
 
@@ -938,5 +953,25 @@ body.kiosk .container {
   background: rgba(0, 0, 0, 0.04);
   padding: 0.1rem 0.4rem;
   border-radius: 0.25rem;
+}
+
+/* Patička s copyrightem */
+.app-footer {
+  margin-top: 2.5rem;
+  padding: 1.25rem 1rem;
+  border-top: 1px solid var(--border-color);
+  background: #ffffff;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.app-footer .footer-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.app-footer .footer-copy {
+  margin: 0;
 }
 

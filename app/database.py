@@ -26,6 +26,102 @@ from app.models import (
 from app.parser import build_derived_teachers
 
 PRAGUE_TZ = ZoneInfo("Europe/Prague")
+CZECH_DAY_NAMES = ["Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota", "Neděle"]
+
+
+def compute_school_week_dates(
+    reference_date: dt_date | datetime | str | None = None,
+    stored_days: list[dict[str, Any]] | dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Vypočítá 6denní školní okno s offsety [0, 1, 2, 3, 4, 7] (Po, Út, St, Čt, Pá a Po příštího týdne).
+    Pro víkendový den (sobota, neděle) vezme následující pondělí.
+    Každý den obsahuje pole has_data: bool.
+    """
+    if reference_date is None:
+        today = datetime.now(PRAGUE_TZ).date()
+        stored_date_strs: list[str] = []
+        if stored_days:
+            if isinstance(stored_days, list):
+                for item in stored_days:
+                    if isinstance(item, dict) and "date" in item:
+                        stored_date_strs.append(str(item["date"]))
+                    elif hasattr(item, "date"):
+                        stored_date_strs.append(str(item.date))
+                    elif isinstance(item, str):
+                        stored_date_strs.append(item)
+            elif isinstance(stored_days, dict):
+                stored_date_strs = [str(k) for k in stored_days]
+
+        if stored_date_strs and not any(d >= today.isoformat() for d in stored_date_strs):
+            ref_date = datetime.fromisoformat(max(stored_date_strs)).date()
+        else:
+            ref_date = today
+    elif isinstance(reference_date, str):
+        ref_date = datetime.fromisoformat(reference_date).date()
+    elif isinstance(reference_date, datetime):
+        ref_date = reference_date.date()
+    elif isinstance(reference_date, dt_date):
+        ref_date = reference_date
+    else:
+        ref_date = datetime.now(PRAGUE_TZ).date()
+
+    # Pro víkend (sobota=5, neděle=6) vezmeme následující pondělí
+    weekday = ref_date.weekday()
+    if weekday == 5:
+        monday = ref_date + timedelta(days=2)
+    elif weekday == 6:
+        monday = ref_date + timedelta(days=1)
+    else:
+        monday = ref_date - timedelta(days=weekday)
+
+    # Vytvoření mapy existujících uložených dnů
+    stored_map: dict[str, dict[str, Any]] = {}
+    if stored_days:
+        if isinstance(stored_days, list):
+            for item in stored_days:
+                if isinstance(item, dict) and "date" in item:
+                    stored_map[str(item["date"])] = item
+                elif hasattr(item, "date"):
+                    stored_map[str(item.date)] = item.model_dump() if hasattr(item, "model_dump") else dict(item)
+                elif isinstance(item, str):
+                    stored_map[item] = {"date": item}
+        elif isinstance(stored_days, dict):
+            for k, v in stored_days.items():
+                if isinstance(v, dict):
+                    stored_map[str(k)] = v
+                else:
+                    stored_map[str(k)] = {"date": str(k)}
+
+    offsets = [0, 1, 2, 3, 4, 7]
+    result: list[dict[str, Any]] = []
+    for off in offsets:
+        cur_date = monday + timedelta(days=off)
+        iso_str = cur_date.isoformat()
+        day_name = CZECH_DAY_NAMES[cur_date.weekday()]
+
+        if iso_str in stored_map:
+            entry = dict(stored_map[iso_str])
+            entry["date"] = iso_str
+            if not entry.get("day_name"):
+                entry["day_name"] = day_name
+            entry["has_data"] = True
+        else:
+            entry = {
+                "date": iso_str,
+                "day_name": day_name,
+                "week_label": "",
+                "exported_at": "",
+                "exported_at_display": "",
+                "updated_at": "",
+                "data_source": "",
+                "source_label": "",
+                "fetched_at": "",
+                "has_data": False,
+            }
+        result.append(entry)
+
+    return result
+
 
 SCHEMA_SQL = """
 PRAGMA foreign_keys = ON;
@@ -580,6 +676,14 @@ class Storage:
                 """
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def list_school_week_dates(
+        self, reference_date: dt_date | datetime | str | None = None
+    ) -> list[dict[str, Any]]:
+        """Vrátí 6denní školní okno (Po-Pá + následující Po) s příznakem has_data."""
+        stored_days = self.list_available_dates()
+        return compute_school_week_dates(reference_date=reference_date, stored_days=stored_days)
+
 
     def get_day(self, target_date: str) -> ScheduleDay | None:
         """Načte kompletní data pro vybraný den (YYYY-MM-DD)."""

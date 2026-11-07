@@ -1,147 +1,115 @@
-# Implementation Plan: Plná jména vyučujících na desktopu a mobilní přepínač zobrazení
+# Implementation Plan: Název školy, copyright v patičce, řada dnů od pondělí do pondělí a oprava klientského běhu (dataset getter bug)
 
 ## Summary
-Tento implementační plán reaguje na nový požadavek uživatele:
-1. **Desktop (> 768px):** V blocích „Nepřítomní učitelé:“ a „Suplující učitelé:“ (`renderGridStrip`) vrátit zobrazení celých jmen vyučujících se zkratkou ve formátu `Filip Hanel (Hf)` (resp. `Jméno Příjmení (Zkratka)`). Žádné přepínací tlačítko se na desktopu nezobrazuje (`display: none`).
-2. **Mobilní zařízení (<= 768px):** Výchozím stavem jsou úsporné oficiální zkratky (např. `Hf`, `Bj`), aby nedocházelo k přeplnění úzké mobilní obrazovky. V hlavičce stripu se zobrazí přístupné tlačítko „Zobrazit celá jména“. Po kliknutí se štítky přepnou na celá jména (`Filip Hanel (Hf)`) a tlačítko změní text na „Skrýt celá jména“.
-3. **Statický export (`dist/` / GitHub Pages):** Skript `app/static_export.py` již nesmí vymazávat `OFFICIAL_TEACHER_CODES` z `dist/app.js`. Datové JSONy v `dist/data/*.json` zůstávají anonymizované (obsahují pouze kódy jako `Hf`), ale klientský skript `dist/app.js` díky zachovanému adresáři 55 pedagogů dokáže na desktopu (a po kliknutí na mobilu) expandovat kód na celé jméno s kódem.
-4. **Verzování assetů:** Povýšení na `?v=17` pro okamžité prolomení vyrovnávací paměti prohlížečů.
+Tento implementační plán řeší:
+1. **Kritická oprava klientského běhu („aplikace neběží“):**
+   - Odstranění nepovoleného přiřazení do read-only getteru `pill.dataset = pill.dataset || {};` v [app/static/app.js](file:///Users/filip/Downloads/krizik_supl/app/static/app.js) a `dist/app.js`, které v reálných prohlížečích vyvolalo `TypeError` a zastavilo vykreslení stránky.
+2. **Úprava názvu školy v hlavičce:**
+   - Zkrácení na oficiální kratší formu **„VOŠ a SPŠE Františka Křižíka“** v [app/static/index.html](file:///Users/filip/Downloads/krizik_supl/app/static/index.html), `dist/index.html`, [app/parser_web.py](file:///Users/filip/Downloads/krizik_supl/app/parser_web.py) a klientském JS.
+3. **Patička s copyrightem:**
+   - Přidání čisté responzivní patičky `<footer>` s textem `© 2026 VOŠ a SPŠE Františka Křižíka · Všechna práva vyhrazena` (v režimu kiosk skryté).
+4. **Řada dnů v záložkách: od pondělí do pondělí (6 školních dnů):**
+   - Fixní zobrazení 6 dnů: Po, Út, St, Čt, Pá aktuálního týdne + Po příštího týdne (pro aktuální týden od 9. 11. to je řada `9. 11. – 13. 11. + 16. 11.`).
+   - Příznak `has_data: boolean` pro každý den.
+   - Pro dny bez dat (`has_data: false`): tlačítko záložky je šedivé, má atribut `disabled`, `aria-disabled="true"` a tooltip `title="Pro tento den zatím není suplování vypsáno"`. Kliknutí je zablokováno.
+   - Pro dny s daty (`has_data: true`, např. pondělí 9. 11.): tlačítko je plně funkční a aktivní. Pokud dorazí data z webu pro aktuální den, záložka se automaticky odemkne.
+5. **Verzování assetů a publikace:**
+   - Povýšení na `?v=18` a nasazení na GitHub Pages do větve `gh-pages`.
 
 ---
 
 ## Interfaces & Architektonický návrh
 
-### 1. Rozšíření mapování a formátování jmen v `app/static/app.js` (a `dist/app.js`)
-
-#### A. Pomocná funkce `lookupTeacherFullName(codeOrName, dayOrMap, naturalOrder = true)`
+### 1. Oprava chyby s `dataset` v `app.js`
+V `createTeacherPill`:
 ```javascript
-function lookupTeacherFullName(codeOrName, dayOrMap, naturalOrder = true) {
-  const str = String(codeOrName || "").trim();
-  if (!str) return "";
+// Původní chybný kód:
+// pill.dataset = pill.dataset || {};
+// pill.dataset.fullName = fullName;
+// pill.dataset.shortName = shortText;
 
-  let rawFullName = OFFICIAL_TEACHER_CODES[str] || "";
-
-  if (!rawFullName && dayOrMap && typeof dayOrMap === "object") {
-    if (Array.isArray(dayOrMap.derived_teachers)) {
-      const dt = dayOrMap.derived_teachers.find(
-        (t) => t.teacher_code === str && t.teacher_full_name && t.teacher_full_name !== str
-      );
-      if (dt) rawFullName = dt.teacher_full_name;
-    }
-    if (!rawFullName && Array.isArray(dayOrMap.absent_teachers)) {
-      const at = dayOrMap.absent_teachers.find(
-        (t) => t.teacher_code === str && t.teacher_full_name && t.teacher_full_name !== str
-      );
-      if (at) rawFullName = at.teacher_full_name;
-    }
+// Nový bezpečný kód:
+if (typeof pill.setAttribute === "function") {
+  pill.setAttribute("data-full-name", fullName);
+  pill.setAttribute("data-short-name", shortText);
+}
+if (pill.dataset) {
+  try {
+    pill.dataset.fullName = fullName;
+    pill.dataset.shortName = shortText;
+  } catch (_e) {
+    // Ignoruj v prostředích s striktním getterem
   }
-
-  if (!rawFullName && NAME_TO_CODE[str]) {
-    rawFullName = OFFICIAL_TEACHER_CODES[NAME_TO_CODE[str]] || str;
-  }
-  if (!rawFullName) {
-    const cleaned = str.replace(/^(?:Mgr\.|Ing\.|Bc\.|PaedDr\.|RNDr\.|PhDr\.|DiS\.)\s+/i, "").trim();
-    if (NAME_TO_CODE[cleaned]) {
-      rawFullName = OFFICIAL_TEACHER_CODES[NAME_TO_CODE[cleaned]] || cleaned;
-    }
-  }
-
-  if (!rawFullName) return str;
-
-  let cleanName = rawFullName.replace(/^(?:Mgr\.|Ing\.|Bc\.|PaedDr\.|RNDr\.|PhDr\.|DiS\.)\s+/i, "").trim();
-
-  if (naturalOrder) {
-    const parts = cleanName.split(/\s+/);
-    if (parts.length === 2) {
-      cleanName = parts[1] + " " + parts[0];
-    }
-  }
-
-  return cleanName;
 }
 ```
 
-#### B. Úprava funkce `formatTeacherWithCode(fullNameOrCode, code, dayOrMap, naturalOrder = true)`
-```javascript
-function formatTeacherWithCode(fullNameOrCode, code, dayOrMap, naturalOrder = true) {
-  let name = (fullNameOrCode || "").trim();
-  const c = (code || lookupTeacherCode(name, dayOrMap) || "").trim();
+### 2. Název školy a patička v HTML
+V `app/static/index.html` a `dist/index.html`:
+- `<h1 class="school-title" id="school-name">VOŠ a SPŠE Františka Křižíka</h1>`
+- Patička před `</body>`:
+  ```html
+  <footer class="app-footer">
+    <div class="footer-inner">
+      <p class="footer-copy">&copy; <span id="footer-year">2026</span> VOŠ a SPŠE Františka Křižíka &middot; Všechna práva vyhrazena</p>
+    </div>
+  </footer>
+  ```
 
-  if (!name && c) {
-    name = lookupTeacherFullName(c, dayOrMap, naturalOrder);
-  } else if (name && c && name === c) {
-    const resolved = lookupTeacherFullName(c, dayOrMap, naturalOrder);
-    if (resolved && resolved !== c) {
-      name = resolved;
-    }
-  } else if (name && naturalOrder) {
-    const cleaned = name.replace(/^(?:Mgr\.|Ing\.|Bc\.|PaedDr\.|RNDr\.|PhDr\.|DiS\.)\s+/i, "").trim();
-    const parts = cleaned.split(/\s+/);
-    if (parts.length === 2 && OFFICIAL_TEACHER_CODES[c] === parts[0] + " " + parts[1]) {
-      name = parts[1] + " " + parts[0];
-    }
-  }
+### 3. Algoritmus pro 6denní školní okno (Po–Pá + Po)
+V `app/database.py` a `app/web.py` i `app/static_export.py`:
+- Funkce `compute_school_week_dates(reference_date, stored_days) -> list[dict]`:
+  - Určí pondělí týdne (pro víkend 7.–8. 11. vezme nadcházející pondělí 9. 11.).
+  - Vygeneruje dny s offsety `[0, 1, 2, 3, 4, 7]` (Po, Út, St, Čt, Pá + následující Po).
+  - Každý den označí `has_data: true`, pokud existují v DB/exportu data pro dané datum, jinak `has_data: false`.
+- V `app.js` (`renderDateTabs`):
+  - Pokud `!d.has_data`, přidá třídu `.disabled`, nastaví `btn.disabled = true`, `btn.setAttribute("aria-disabled", "true")`, a tooltip `title="Pro tento den zatím není suplování vypsáno"`.
+  - Pro dny s `has_data: true` ponechá plnou interaktivitu.
+- V `chooseDefaultDate`:
+  - Automaticky vybere nejbližší den s `has_data: true` (pondělí 9. 11.), takže uživatel nepřistane na prázdném dni.
 
-  if (!name) return c ? "(" + c + ")" : "";
-  if (!c) return name;
-  if (name.includes("(" + c + ")")) return name;
-  if (name === c) return name;
-  return name + " (" + c + ")";
+### 4. Styly pro disabled záložky a patičku
+V `app/static/styles.css`:
+```css
+.date-tab.disabled,
+.date-tab:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #cbd5e1;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.app-footer {
+  margin-top: 2.5rem;
+  padding: 1.25rem 1rem;
+  border-top: 1px solid var(--border-color);
+  background: #ffffff;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+body.kiosk .app-footer {
+  display: none !important;
 }
 ```
-
-#### C. Rozšíření funkce `createTeacherPill`
-```javascript
-function createTeacherPill(fullName, hoursText, variant, shortCode) {
-  const pill = el("div", "teacher-pill pill-" + variant);
-  const shortText = shortCode || fullName;
-  if (typeof pill.setAttribute === "function") {
-    pill.setAttribute("data-full-name", fullName);
-    pill.setAttribute("data-short-name", shortText);
-  }
-  pill.dataset = pill.dataset || {};
-  pill.dataset.fullName = fullName;
-  pill.dataset.shortName = shortText;
-
-  const isMobile = detectIsMobile();
-  const showFull = !isMobile || Boolean(state.showFullTeacherNamesOnMobile);
-
-  const nameSpan = el("span", "pill-name", showFull ? fullName : shortText);
-  pill.appendChild(nameSpan);
-
-  if (hoursText) {
-    pill.appendChild(el("span", "pill-hours", hoursText));
-  }
-  return pill;
-}
-```
-
-#### D. Úprava `renderGridStrip(day)` a přepínání `toggleStripTeacherNames`
-Tlačítko `.btn-strip-toggle` se umístí do `.strip-teachers .strip-header`:
-- Na mobilu (<= 768px): výchozí text "Zobrazit celá jména", po kliknutí "Skrýt celá jména".
-- Na desktopu (> 768px): v CSS skryto pomocí `@media (min-width: 769px) { .btn-strip-toggle { display: none !important; } }`.
-
-### 2. Úprava `app/static_export.py`
-Zachovat deklaraci `const OFFICIAL_TEACHER_CODES` v `dist/app.js` beze změny (nemazat slovník).
-
-### 3. Verzování assetů
-Povýšit na `styles.css?v=17` a `app.js?v=17` v `app/static/index.html` a `dist/index.html`.
 
 ---
 
 ## Test Specs
 
-| Test ID | Typ testu | Testovací scénář a Edge-cases | Očekávaný výsledek |
-|---|---|---|---|
-| `TEST-EXPAND-TEACHER-CODE-01` | Unit (Node.js) | Test `lookupTeacherFullName` a `formatTeacherWithCode` pro kódy `"Hf"`, `"Ko"`, `"Bj"` a neznámý kód `"Xy"`. | `"Hf"` -> `"Filip Hanel (Hf)"`; `"Ko"` -> `"Miloš Kodad (Ko)"`; `"Bj"` -> `"Markéta Bajerová (Bj)"`; neznámý `"Xy"` -> `"Xy"`. |
-| `TEST-STRIP-DESKTOP-FULL-NAMES-01` | Unit (Node.js) | Volání `renderGridStrip(day)` v desktopovém prostředí (`detectIsMobile() === false`). | Všechny vygenerované `.pill-name` obsahují celá jména i se zkratkami (např. `Filip Hanel (Hf)`). Tlačítko `.btn-strip-toggle` je přítomno. |
-| `TEST-STRIP-MOBILE-DEFAULT-ABBR-01` | Unit (Node.js) | Volání `renderGridStrip(day)` v simulovaném mobilním prostředí (`innerWidth <= 768` nebo `isMobile: true`). | `.pill-name` zobrazuje pouze zkratky (např. `Hf`, `Bj`), tlačítko `.btn-strip-toggle` existuje s textem `"Zobrazit celá jména"` a `aria-expanded="false"`. |
-| `TEST-STRIP-MOBILE-TOGGLE-CLICK-01` | Integration (Node.js/DOM) | Kliknutí na `.btn-strip-toggle` v mobilním režimu. | Texty ve všech štítcích `.pill-name` se změní na celá jména (`Filip Hanel (Hf)`). Text tlačítka se změní na `"Skrýt celá jména"`. Druhé kliknutí vrátí zkratky. |
-| `TEST-STATIC-EXPORT-PRESERVES-CODES-01` | Integration (Python) | Spuštění `export_static_site()`. | `dist/app.js` obsahuje kompletní deklaraci `const OFFICIAL_TEACHER_CODES` s 55 pedagogy (není prázdný `{}`). |
-| `TEST-STATIC-EXPORT-EXPANSION-01` | Integration (Node.js) | Načtení `dist/app.js` a souboru `dist/data/day-2026-11-06.json`. Volání `renderGridStrip(day)`. | Na desktopu se v `dist/app.js` kód `"Hf"` úspěšně expanduje na `"Filip Hanel (Hf)"`. |
+| Test ID | Popis | Očekávaný výsledek |
+|---|---|---|
+| `TEST-FIX-DATASET-GETTER-01` | Spuštění reálného prohlížeče Chromium na stránce | Nulový výskyt chyby `Cannot set property dataset`, tabulka a karty se úspěšně vykreslí. |
+| `TEST-SCHOOL-NAME-HEADER-01` | Kontrola textu `#school-name` | Obsahuje přesně `VOŠ a SPŠE Františka Křižíka`. |
+| `TEST-FOOTER-HTML-01` | Kontrola patičky `.app-footer` | Obsahuje copyright `© 2026 VOŠ a SPŠE Františka Křižíka · Všechna práva vyhrazena`. |
+| `TEST-CALENDAR-MONDAY-RANGE-01` | Výpočet řady pro pondělí 9. 11. | Vrátí přesně 6 prvků: 9. 11. (Po) až 13. 11. (Pá) + 16. 11. (Po). |
+| `TEST-CALENDAR-FLAGS-01` | Kontrola příznaků `has_data` | Pro 9. 11. je `has_data: true`, pro ostatní dny `has_data: false`. |
+| `TEST-UI-DATE-TABS-DISABLED-01` | Vykreslení záložek v DOMu | Dny bez dat mají třídu `.disabled` a atribut `disabled`. |
+| `TEST-STATIC-EXPORT-VERSION-18-01` | Verzování assetů | V index.html je `styles.css?v=18` a `app.js?v=18`. |
 
 ---
 
 ## Security Considerations
-1. Bezpečné DOM manipulace: Použití `textContent`, žádné `innerHTML`.
-2. Žádný únik soukromých údajů: Veřejný seznam učitelů SPŠE Křižík je plně v souladu s veřejným charakterem rozvrhu a požadavkem školy.
+- Všechny DOM prvky vytvářeny pomocí `document.createElement()` a `textContent`.
+- Žádné `innerHTML`, žádné bezpečnostní regrese.
