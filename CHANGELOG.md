@@ -1,8 +1,26 @@
 # Changelog
 
 ## [Unreleased]
-### Fixed
-- **Kritická oprava klientského běhu (`dataset` getter bug)**: V `app/static/app.js` a `dist/app.js` v `createTeacherPill` odstraněno neplatné přiřazení do read-only getteru `pill.dataset = pill.dataset || {};`, které v prohlížečích způsobovalo `TypeError: Cannot set property dataset`. Nahrazeno bezpečným `setAttribute("data-full-name", fullName)` a ošetřeným zápisem do `dataset` s `try/catch`. V `toggleStripTeacherNames` sjednoceno bezpečné čtení atributů z `getAttribute` i `dataset`.
+### Added
+- **Kiosk fullscreen režim na serverovém desktopu**:
+  - Funkce `shouldAutoStartKiosk()` automaticky aktivuje režim kiosk na serverovém desktopu (`!state.isStaticExport && !detectIsMobile()`) a při `?kiosk=1`. Podporován escape hatch `?kiosk=0` a zachováno standardní zobrazení na mobilních zařízeních.
+  - Při startu aplikace se automaticky vyvolá `startKiosk()`, který aplikuje třídu `body.kiosk`, zobrazí tlačítko `#btn-kiosk-exit`, pokusí se o `requestFullscreen()` a registruje jednorázový posluchač uživatelského gesta (`click`, `touchstart`, `pointerdown`) pro okamžitou aktivaci nativního fullscreenu.
+  - Zachována možnost opustit režim stiskem klávesy `Escape` nebo kliknutím na tlačítko `#btn-kiosk-exit`.
+- **Podpora domény `suplovani.skolakrizik.cz` a dynamický `source_label`**:
+  - Přidána školní subdoména `'suplovani.skolakrizik.cz'` do `ALLOWED_HOSTS` v `app/fetcher.py`.
+  - Dynamické určení `source_label = f"Web ({host})"` v modulu `WebFetcher` podle cílové URL.
+  - V `Storage.save_web_day` v `app/database.py` parametrizováno ukládání `day.source_label` namísto pevného řetězce.
+- **Midnight & Morning rollover**:
+  - Implementováno sledování kalendářního dne v časovém pásmu `Europe/Prague` (`getPragueCalendarDate()`).
+  - Periodická smyčka (25 s) i SSE posluchač změn při přechodu půlnoci nebo vypršení nečinnosti v kiosku (300 s) resetují `state.userManuallySelectedDate = false` a volají `loadData("", false)`, čímž automaticky přejdou na aktuální den bez nutnosti restartu prohlížeče.
+- **Nové testovací specifikace**:
+  - Implementována sada 11 testů pokrývající všechny body implementačního plánu: `TEST-UI-SUPPRESS-STALE-BANNER-01`, `TEST-KIOSK-AUTO-START-DESKTOP-01`, `TEST-KIOSK-FIRST-CLICK-FULLSCREEN-01`, `TEST-KIOSK-EXIT-ESC-AND-BUTTON-01`, `TEST-FETCHER-ALLOWED-HOSTS-01`, `TEST-FETCHER-SOURCE-LABEL-DYNAMIC-01`, `TEST-FETCHER-DB-PRESERVATION-ON-FAILURE-01`, `TEST-FILE-IMPORT-PRESERVATION-ON-WATCHER-01`, `TEST-CALENDAR-MIDNIGHT-ROLLOVER-01`, `TEST-CALENDAR-MORNING-DATA-ARRIVAL-01` a `TEST-STATIC-EXPORT-VERSION-19-01`.
+
+### Changed
+- **Potlačení banneru zastaralosti dat (`#banner-stale`)**:
+  - V `app/static/app.js` a `dist/app.js` v `renderBannersAndHeader` je banner `#banner-stale` trvale skryt třídou `hidden` a varovný text se v UI nezobrazuje. Diagnostika stáří dat na backendu (`/admin/status`, `/api/status`) zůstává netknutá.
+- Verzování klientských assetů povýšeno na `styles.css?v=19` a `app.js?v=19` v `app/static/index.html` i `dist/index.html`.
+- Přegenerován statický export `dist/` (`python -m app export-static`) a PDF dokumentace v `docs/` (`python scripts/generate_docs_and_pdfs.py`).
 
 ### Added
 - **Oficiální název školy**: Nastaven na kratší jednotnou formu **„VOŠ a SPŠE Františka Křižíka“** v hlavičce `<h1>` (`#school-name`), v `app/parser_web.py` a normalizací v klientském JS.

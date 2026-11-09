@@ -513,13 +513,14 @@ class Storage:
             # Smaže výhradně tento 1 daný den
             cur.execute("DELETE FROM schedule_days WHERE date = ?", (day.date,))
 
+            source_label = day.source_label or "Web"
             cur.execute(
                 """
                 INSERT INTO schedule_days (
                     date, day_name, week_label, school_name,
                     exported_at, exported_at_display, updated_at, source_import_id,
                     data_source, source_label, fetched_at, source_hash
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'web', 'Web (klasifikace.skolakrizik.cz)', ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'web', ?, ?, ?)
                 """,
                 (
                     day.date,
@@ -529,6 +530,7 @@ class Storage:
                     day.exported_at or now_iso,
                     day.exported_at_display,
                     now_iso,
+                    source_label,
                     day.fetched_at or now_iso,
                     source_hash,
                 ),

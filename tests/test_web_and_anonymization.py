@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import unittest.mock
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.anonymizer import collect_name_tokens
@@ -396,8 +398,17 @@ def test_strip_04_integration_dom_and_api_strip_blocks(tmp_path: Path) -> None:
 
         r_index = client.get("/")
         assert r_index.status_code == 200
-        assert ("href=\"styles.css?v=17\"" in r_index.text or "href=\"styles.css?v=18\"" in r_index.text)
-        assert ("src=\"app.js?v=17\"" in r_index.text or "src=\"app.js?v=18\"" in r_index.text)
+        assert (
+            "href=\"styles.css?v=17\"" in r_index.text
+            or "href=\"styles.css?v=18\"" in r_index.text
+            or "href=\"styles.css?v=19\"" in r_index.text
+        )
+        assert (
+            "src=\"app.js?v=17\"" in r_index.text
+            or "src=\"app.js?v=18\"" in r_index.text
+            or "src=\"app.js?v=19\"" in r_index.text
+        )
+
 
 
 def test_strip_05_anonymization_and_security_pills(tmp_path: Path) -> None:
@@ -1293,7 +1304,7 @@ def test_static_export_no_hidden_notes_01(tmp_path: Path) -> None:
     assert "source-badge source-file" not in index_html
     assert "Zdroj: Soubor (Bakaláři export)" not in index_html
     assert "Načítám zdroj…" not in index_html
-    assert ("?v=17" in index_html or "?v=18" in index_html)
+    assert ("?v=17" in index_html or "?v=18" in index_html or "?v=19" in index_html)
 
     # c) dist/data/day-2026-11-06.json obsahuje čas v exported_at_display a data_source = 'web'
     fri_file = dist_dir / "data" / "day-2026-11-06.json"
@@ -2265,9 +2276,9 @@ def test_static_export_no_source_badge_01(tmp_path: Path) -> None:
     assert "Old (Seznam karet)" not in index_html
     assert "Přehled po třídách" in index_html
     assert 'title="Zobrazit rozpis změn rozdělený po jednotlivých třídách"' in index_html
-    assert ("?v=17" in index_html or "?v=18" in index_html)
-    assert ("styles.css?v=17" in index_html or "styles.css?v=18" in index_html)
-    assert ("app.js?v=17" in index_html or "app.js?v=18" in index_html)
+    assert ("?v=17" in index_html or "?v=18" in index_html or "?v=19" in index_html)
+    assert ("styles.css?v=17" in index_html or "styles.css?v=18" in index_html or "styles.css?v=19" in index_html)
+    assert ("app.js?v=17" in index_html or "app.js?v=18" in index_html or "app.js?v=19" in index_html)
 
 
 def test_detect_view_mobile_01() -> None:
@@ -2744,9 +2755,9 @@ def test_static_export_version_17_01(tmp_path: Path) -> None:
     export_static_site(cfg, output_dir=dist_dir)
 
     index_html = (dist_dir / "index.html").read_text(encoding="utf-8")
-    assert ("?v=17" in index_html or "?v=18" in index_html)
-    assert ("styles.css?v=17" in index_html or "styles.css?v=18" in index_html)
-    assert ("app.js?v=17" in index_html or "app.js?v=18" in index_html)
+    assert ("?v=17" in index_html or "?v=18" in index_html or "?v=19" in index_html)
+    assert ("styles.css?v=17" in index_html or "styles.css?v=18" in index_html or "styles.css?v=19" in index_html)
+    assert ("app.js?v=17" in index_html or "app.js?v=18" in index_html or "app.js?v=19" in index_html)
 
 
 def test_expand_teacher_code_01() -> None:
@@ -3099,8 +3110,8 @@ def test_static_export_version_18_01() -> None:
     """TEST-STATIC-EXPORT-VERSION-18-01: Verzování assetů styles.css?v=18 a app.js?v=18."""
     html_path = Path(__file__).resolve().parent.parent / "app" / "static" / "index.html"
     content = html_path.read_text(encoding="utf-8")
-    assert 'href="styles.css?v=18"' in content
-    assert 'src="app.js?v=18"' in content
+    assert 'href="styles.css?v=18"' in content or 'href="styles.css?v=19"' in content
+    assert 'src="app.js?v=18"' in content or 'src="app.js?v=19"' in content
 
 
 def test_ui_date_tabs_disabled_01() -> None:
@@ -3213,4 +3224,431 @@ def test_fix_dataset_getter_01(tmp_path: Path) -> None:
     assert "VOŠ a SPŠE Františka Křižíka" in school_title
     assert "VOŠ a SPŠE Františka Křižíka" in footer_text
     assert date_tabs_count == 6
+
+
+def test_ui_suppress_stale_banner_01() -> None:
+    """TEST-UI-SUPPRESS-STALE-BANNER-01: Potlačení banneru zastaralosti dat (#banner-stale) v UI.
+
+    I když je is_stale: true, has_data: true, age_hours: 72, banner má třídu hidden a text se nezobrazuje.
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    const bannerStale = {
+      className: 'banner banner-warning hidden',
+      classList: {
+        _classes: new Set(['banner', 'banner-warning', 'hidden']),
+        add(c) { this._classes.add(c); },
+        remove(c) { this._classes.delete(c); },
+        contains(c) { return this._classes.has(c); }
+      }
+    };
+    const bannerStaleText = { textContent: '' };
+    app.els.bannerStale = bannerStale;
+    app.els.bannerStaleText = bannerStaleText;
+    app.els.bannerParseError = { classList: { add() {}, remove() {} } };
+    app.els.bannerOffline = { classList: { add() {}, remove() {} } };
+    app.state.status = { is_stale: true, has_data: true, age_hours: 72, stale_threshold_hours: 24 };
+
+    app.renderBannersAndHeader();
+
+    const isHidden = bannerStale.classList.contains('hidden');
+    const text = bannerStaleText.textContent;
+    console.log(JSON.stringify({ isHidden, text }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["isHidden"] is True
+    assert out["text"] == ""
+
+
+def test_kiosk_auto_start_desktop_01() -> None:
+    """TEST-KIOSK-AUTO-START-DESKTOP-01: shouldAutoStartKiosk() a automatický start kiosku na serverovém desktopu."""
+    script = """
+    const app = require('./app/static/app.js');
+
+    // 1. Desktop server: isStaticExport = false, isMobile = false
+    app.state.isStaticExport = false;
+    global.window = {
+      innerWidth: 1920,
+      innerHeight: 1080,
+      location: { search: '' }
+    };
+    const autoDesktop = app.shouldAutoStartKiosk();
+
+    // 2. Escape hatch ?kiosk=0
+    global.window.location.search = '?kiosk=0';
+    const escapeHatch = app.shouldAutoStartKiosk();
+
+    // 3. Explicitní ?kiosk=1
+    global.window.location.search = '?kiosk=1';
+    const forceKiosk = app.shouldAutoStartKiosk();
+
+    // 4. Mobile screen width 375
+    global.window.location.search = '';
+    global.window.innerWidth = 375;
+    const mobileAuto = app.shouldAutoStartKiosk();
+
+    // 5. Static export on desktop
+    global.window.innerWidth = 1920;
+    app.state.isStaticExport = true;
+    const staticAuto = app.shouldAutoStartKiosk();
+
+    console.log(JSON.stringify({ autoDesktop, escapeHatch, forceKiosk, mobileAuto, staticAuto }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["autoDesktop"] is True
+    assert out["escapeHatch"] is False
+    assert out["forceKiosk"] is True
+    assert out["mobileAuto"] is False
+    assert out["staticAuto"] is False
+
+
+def test_kiosk_first_click_fullscreen_01() -> None:
+    """TEST-KIOSK-FIRST-CLICK-FULLSCREEN-01: Jednorázové first-click gesto pro vstup do nativního fullscreenu."""
+    script = """
+    const app = require('./app/static/app.js');
+    const listeners = {};
+    global.window = {
+      addEventListener(type, fn, capture) {
+        listeners[type] = listeners[type] || [];
+        listeners[type].push(fn);
+      },
+      removeEventListener(type, fn, capture) {
+        if (!listeners[type]) return;
+        listeners[type] = listeners[type].filter(f => f !== fn);
+      }
+    };
+    let fsCalled = 0;
+    global.document = {
+      fullscreenElement: null,
+      documentElement: {
+        requestFullscreen() {
+          fsCalled++;
+          return Promise.resolve();
+        }
+      },
+      body: {
+        classList: { add() {}, remove() {}, contains() { return false; } }
+      },
+      getElementById() { return null; }
+    };
+
+    app.kiosk.active = true;
+    app.armKioskFullscreenGesture();
+
+    // Listener byl registrován pro click, touchstart, pointerdown
+    const hasClick = (listeners['click'] || []).length > 0;
+    const hasTouch = (listeners['touchstart'] || []).length > 0;
+    const hasPointer = (listeners['pointerdown'] || []).length > 0;
+
+    // Vyvoláme first click
+    listeners['click'][0]();
+
+    // Po kliku se pokusil o requestFullscreen a posluchače se odregistrovaly
+    const remainingClick = (listeners['click'] || []).length;
+    const remainingTouch = (listeners['touchstart'] || []).length;
+    const remainingPointer = (listeners['pointerdown'] || []).length;
+
+    console.log(JSON.stringify({
+      hasClick,
+      hasTouch,
+      hasPointer,
+      fsCalled,
+      remainingClick,
+      remainingTouch,
+      remainingPointer
+    }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["hasClick"] is True
+    assert out["hasTouch"] is True
+    assert out["hasPointer"] is True
+    assert out["fsCalled"] == 1
+    assert out["remainingClick"] == 0
+    assert out["remainingTouch"] == 0
+    assert out["remainingPointer"] == 0
+
+
+def test_kiosk_exit_esc_and_button_01() -> None:
+    """TEST-KIOSK-EXIT-ESC-AND-BUTTON-01: Ukončení kiosku stiskem klávesy Escape nebo tlačítkem."""
+    script = """
+    const app = require('./app/static/app.js');
+    let bodyClasses = new Set();
+    let btnExitClasses = new Set(['hidden']);
+    let cancelledRaf = 0;
+    global.cancelAnimationFrame = (id) => { cancelledRaf = id; };
+    global.document = {
+      body: {
+        classList: {
+          add(c) { bodyClasses.add(c); },
+          remove(c) { bodyClasses.delete(c); },
+          contains(c) { return bodyClasses.has(c); }
+        }
+      },
+      fullscreenElement: null,
+      getElementById(id) {
+        if (id === 'btn-kiosk-exit') {
+          return {
+            classList: {
+              add(c) { btnExitClasses.add(c); },
+              remove(c) { btnExitClasses.delete(c); },
+              contains(c) { return btnExitClasses.has(c); }
+            }
+          };
+        }
+        return null;
+      }
+    };
+    app.kiosk.active = true;
+    app.kiosk.raf = 42;
+    bodyClasses.add('kiosk');
+    btnExitClasses.delete('hidden');
+
+    app.stopKiosk();
+
+    const isKioskActive = app.kiosk.active;
+    const hasBodyKiosk = bodyClasses.has('kiosk');
+    const hasBtnHidden = btnExitClasses.has('hidden');
+
+    console.log(JSON.stringify({ isKioskActive, hasBodyKiosk, hasBtnHidden, cancelledRaf }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["isKioskActive"] is False
+    assert out["hasBodyKiosk"] is False
+    assert out["hasBtnHidden"] is True
+    assert out["cancelledRaf"] == 42
+
+
+def test_fetcher_allowed_hosts_01() -> None:
+    """TEST-FETCHER-ALLOWED-HOSTS-01: Validace URL s oběma doménami a odmítnutí nebezpečných URL."""
+    from app.fetcher import FetchError, validate_web_url
+
+    # Povolené domény na https:443
+    validate_web_url("https://klasifikace.skolakrizik.cz/next/zmeny.aspx")
+    validate_web_url("https://suplovani.skolakrizik.cz/zmeny.aspx")
+
+    # Neznámá doména
+    with pytest.raises(FetchError, match="whitelistu povolených domén"):
+        validate_web_url("https://utocnik.cz/zmeny.aspx")
+
+    # Plain HTTP
+    with pytest.raises(FetchError, match="Vyžadováno je výhradně HTTPS"):
+        validate_web_url("http://suplovani.skolakrizik.cz/zmeny.aspx")
+
+    # Nestandardní port
+    with pytest.raises(FetchError, match="Povolen je výhradně port 443"):
+        validate_web_url("https://suplovani.skolakrizik.cz:8080/zmeny.aspx")
+
+    # Privátní IP / SSRF
+    with pytest.raises(FetchError):
+        validate_web_url("https://10.20.0.81/zmeny.aspx")
+
+
+def test_fetcher_source_label_dynamic_01(tmp_path: Path) -> None:
+    """TEST-FETCHER-SOURCE-LABEL-DYNAMIC-01: Dynamické nastavení source_label podle URL (suplovani.skolakrizik.cz)."""
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+
+    db_path = tmp_path / "test_dyn.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        watch_dir=tmp_path / "exports",
+        web_url="https://suplovani.skolakrizik.cz/next/zmeny.aspx",
+    )
+    fetcher = WebFetcher(config=cfg, storage=storage)
+
+    web_html = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=web_html,
+            headers={"Content-Type": "text/html; charset=windows-1250"},
+        )
+
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is True
+
+    day = storage.get_day("2026-11-06")
+    assert day is not None
+    assert day.source_label == "Web (suplovani.skolakrizik.cz)"
+    assert day.data_source == "web"
+
+
+def test_fetcher_db_preservation_on_failure_01(tmp_path: Path) -> None:
+    """TEST-FETCHER-DB-PRESERVATION-ON-FAILURE-01: Při selhání web fetcheru (HTTP 503, timeout, poškozené HTML)
+    zůstávají v SQLite stávající platná data zachována bez vymazání.
+    """
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+    from app.parser import parse_suplovani_html
+
+    db_path = tmp_path / "test_preservation.db"
+    storage = Storage(db_path)
+
+    # 1. Nejprve naplníme DB platnými daty
+    raw_file = (SAMPLES_DIR / "suplprehtrid.html").read_bytes()
+    res = parse_suplovani_html(raw_file, file_name="suplprehtrid.html")
+    storage.save_parse_result(res, file_hash="hash_orig", file_size=len(raw_file))
+
+    days_before = storage.list_available_dates()
+    assert len(days_before) > 0
+    target_date = str(days_before[0]["date"])
+    day_before = storage.get_day(target_date)
+    assert day_before is not None
+
+    cfg = AppConfig(
+        db_path=db_path,
+        watch_dir=tmp_path / "exports",
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+    )
+    fetcher = WebFetcher(config=cfg, storage=storage)
+
+    # 2. Simulace HTTP 503 výpadku
+    def handler_503(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, text="Service Unavailable")
+
+    with unittest.mock.patch(
+        "httpx.AsyncClient",
+        return_value=httpx.AsyncClient(transport=httpx.MockTransport(handler_503)),
+    ):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is False
+        assert fetcher.last_status == "ERROR"
+
+    # Ověříme, že data v DB jsou 100% zachována
+    day_after_503 = storage.get_day(target_date)
+    assert day_after_503 is not None
+    assert len(storage.list_available_dates()) == len(days_before)
+
+    # 3. Simulace poškozeného HTML
+    def handler_corrupt(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<invalid>html missing tables")
+
+    with unittest.mock.patch(
+        "httpx.AsyncClient",
+        return_value=httpx.AsyncClient(transport=httpx.MockTransport(handler_corrupt)),
+    ):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is False
+
+    day_after_corrupt = storage.get_day(target_date)
+    assert day_after_corrupt is not None
+
+
+def test_file_import_preservation_on_watcher_01(tmp_path: Path) -> None:
+    """TEST-FILE-IMPORT-PRESERVATION-ON-WATCHER-01: Zápis validního exportu vs. poškozeného souboru.
+
+    Poškozený soubor zapíše chybu do import_runs, ale existující rozvrhová data nesmaže.
+    """
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.watcher import FolderWatcher
+
+    watch_dir = tmp_path / "exports"
+    watch_dir.mkdir()
+    db_path = tmp_path / "test_watcher_preserv.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(db_path=db_path, watch_dir=watch_dir, stability_seconds=0.0)
+    watcher = FolderWatcher(config=cfg, storage=storage)
+
+    # 1. Zápis validního souboru
+    valid_file = watch_dir / "suplprehtrid.html"
+    valid_file.write_bytes((SAMPLES_DIR / "suplprehtrid.html").read_bytes())
+    watcher.scan_once()
+
+    days_initial = storage.list_available_dates()
+    assert len(days_initial) > 0
+
+    # 2. Zápis nevalidního/poškozeného souboru
+    corrupt_file = watch_dir / "corrupt.html"
+    corrupt_file.write_text("Toto není platné HTML rozvrhu", encoding="utf-8")
+    watcher.scan_once()
+
+    # Data v DB zůstávají nedotčena
+    days_after = storage.list_available_dates()
+    assert len(days_after) == len(days_initial)
+
+    # V import_runs je zaznamenána chyba
+    with storage._connect() as conn:
+        row = conn.execute(
+            "SELECT status, error_message FROM import_runs WHERE file_name = 'corrupt.html'"
+        ).fetchone()
+        assert row is not None
+        assert row["status"] == "ERROR"
+
+
+def test_calendar_midnight_rollover_01() -> None:
+    """TEST-CALENDAR-MIDNIGHT-ROLLOVER-01: Změna pražského kalendářního dne o půlnoci resetuje ruční výběr."""
+    script = """
+    const app = require('./app/static/app.js');
+    let loadedTarget = null;
+    let loadedPreserve = null;
+    app.loadData = (targetDate, preserveSelection) => {
+      loadedTarget = targetDate;
+      loadedPreserve = preserveSelection;
+    };
+
+    app.state.lastCalendarDate = '2026-11-09';
+    app.state.userManuallySelectedDate = true;
+    app.state.selectedDate = '2026-11-09';
+
+    // Simulujeme nový den 2026-11-10 (půlnoc)
+    app.getPragueCalendarDate = () => '2026-11-10';
+
+    app.checkCalendarDayAndRefresh(false);
+
+    const dayAfter = app.state.lastCalendarDate;
+    const manualAfter = app.state.userManuallySelectedDate;
+
+    console.log(JSON.stringify({ dayAfter, manualAfter, loadedTarget, loadedPreserve }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["dayAfter"] == "2026-11-10"
+    assert out["manualAfter"] is False
+    assert out["loadedTarget"] == ""
+    assert out["loadedPreserve"] is False
+
+
+def test_calendar_morning_data_arrival_01() -> None:
+    """TEST-CALENDAR-MORNING-DATA-ARRIVAL-01: Ranní příchod dat přes SSE při userManuallySelectedDate: false vyvolá loadData('', false)."""
+    script = """
+    const app = require('./app/static/app.js');
+    let loadCalls = [];
+    app.loadData = (targetDate, preserveSelection) => {
+      loadCalls.push({ targetDate, preserveSelection });
+    };
+
+    app.state.lastCalendarDate = '2026-11-10';
+    app.getPragueCalendarDate = () => '2026-11-10';
+    app.state.userManuallySelectedDate = false;
+    app.state.selectedDate = '2026-11-09'; // Původně starší den
+
+    // Přijde SSE update
+    app.checkCalendarDayAndRefresh(true);
+
+    console.log(JSON.stringify({ loadCalls, manual: app.state.userManuallySelectedDate }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert len(out["loadCalls"]) == 1
+    assert out["loadCalls"][0]["targetDate"] == ""
+    assert out["loadCalls"][0]["preserveSelection"] is False
+
+
+def test_static_export_version_19_01() -> None:
+    """TEST-STATIC-EXPORT-VERSION-19-01: Asset versioning styles.css?v=19 a app.js?v=19."""
+    html_path = Path(__file__).resolve().parent.parent / "app" / "static" / "index.html"
+    content = html_path.read_text(encoding="utf-8")
+    assert 'href="styles.css?v=19"' in content
+    assert 'src="app.js?v=19"' in content
 

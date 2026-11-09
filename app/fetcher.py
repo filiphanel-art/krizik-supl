@@ -17,7 +17,10 @@ from app.database import Storage, compute_sha256
 from app.parser_web import parse_web_zmeny_html
 
 PRAGUE_TZ = ZoneInfo("Europe/Prague")
-ALLOWED_HOSTS = {"klasifikace.skolakrizik.cz"}
+ALLOWED_HOSTS = {
+    "klasifikace.skolakrizik.cz",
+    "suplovani.skolakrizik.cz",
+}
 BLOCKED_IP_PREFIXES = (
     "127.",
     "10.",
@@ -228,9 +231,10 @@ class WebFetcher:
             return False
 
         saved_any = False
+        host = urlsplit(url).hostname or "web"
         for day in parse_result.days:
             day.data_source = "web"
-            day.source_label = "Web (klasifikace.skolakrizik.cz)"
+            day.source_label = f"Web ({host})"
             day.fetched_at = now_iso
             saved = self.storage.save_web_day(day, source_hash=content_hash)
             if saved:
