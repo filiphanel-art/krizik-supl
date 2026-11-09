@@ -6,7 +6,7 @@ services:
     container_name: krizik-suplovani-viewer
     restart: unless-stopped
     ports:
-      - "${SUPL_PORT:-8080}:8000"
+      - "0.0.0.0:${SUPL_PORT:-8080}:8000"
     environment:
       - TZ=Europe/Prague
       - SUPL_WATCH_DIR=/app/watch_exports
