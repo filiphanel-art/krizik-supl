@@ -290,6 +290,10 @@
     return "grid";
   }
 
+  function getPragueCalendarDate() {
+    return new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Prague" });
+  }
+
   const state = {
     dates: [],
     selectedDate: "",
@@ -301,7 +305,10 @@
     viewManuallySelected: false,
     showFullTeacherNamesOnMobile: false,
     isStaticExport: typeof window !== "undefined" ? Boolean(window.__STATIC_EXPORT__) : false,
-    isOffline: false
+    isOffline: false,
+    lastCalendarDate: getPragueCalendarDate(),
+    userManuallySelectedDate: false,
+    lastUserInteraction: Date.now()
   };
 
   const els = hasDom
@@ -379,7 +386,7 @@
 
   function chooseDefaultDate(datesList) {
     if (!datesList || datesList.length === 0) return "";
-    const todayIso = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Prague" });
+    const todayIso = getPragueCalendarDate();
     const exact = datesList.find((d) => d.date === todayIso && d.has_data !== false);
     if (exact) return exact.date;
     const future = datesList.find((d) => d.date >= todayIso && d.has_data !== false);
@@ -570,37 +577,35 @@
       }
     }
 
-    if (st.has_parse_error) {
-      els.bannerParseError.classList.remove("hidden");
-      els.bannerParseErrorText.textContent =
-        " Zobrazují se poslední platná data.";
-    } else {
-      els.bannerParseError.classList.add("hidden");
+    if (els.bannerParseError && els.bannerParseError.classList) {
+      if (st.has_parse_error) {
+        els.bannerParseError.classList.remove("hidden");
+        if (els.bannerParseErrorText) {
+          els.bannerParseErrorText.textContent =
+            " Zobrazují se poslední platná data.";
+        }
+      } else {
+        els.bannerParseError.classList.add("hidden");
+      }
     }
 
-    if (st.is_stale && st.has_data) {
-      els.bannerStale.classList.remove("hidden");
-      const ageTxt = st.age_hours !== null && st.age_hours !== undefined ? st.age_hours + " h" : "limit";
-      els.bannerStaleText.textContent =
-        "Upozornění: Data výpisu jsou starší než " +
-        (st.stale_threshold_hours || 24) +
-        " hodin (stáří: " +
-        ageTxt +
-        ").";
-    } else {
+    if (els.bannerStale && els.bannerStale.classList) {
       els.bannerStale.classList.add("hidden");
     }
 
-    if (state.isOffline) {
-      els.bannerOffline.classList.remove("hidden");
-    } else {
-      els.bannerOffline.classList.add("hidden");
+    if (els.bannerOffline && els.bannerOffline.classList) {
+      if (state.isOffline) {
+        els.bannerOffline.classList.remove("hidden");
+      } else {
+        els.bannerOffline.classList.add("hidden");
+      }
     }
 
     updateSourceBadge(day);
   }
 
   function renderDateTabs() {
+    if (!els.dateTabs || !els.dateTabs.replaceChildren) return;
     els.dateTabs.replaceChildren();
     state.dates.forEach((d) => {
       const isDisabled = d.has_data === false;
@@ -638,6 +643,8 @@
           // Okamžitá změna třídy i textu štítku s časem (0 ms prodleva)
           updateSourceBadge(d);
 
+          state.userManuallySelectedDate = true;
+          state.lastUserInteraction = Date.now();
           state.selectedDate = d.date;
           loadData(d.date, false);
         });
@@ -647,6 +654,7 @@
   }
 
   function populateEntityFilter() {
+    if (!els.entitySelect || !els.entitySelect.replaceChildren) return;
     const day = state.dayData;
     const prevVal = state.selectedEntity;
     els.entitySelect.replaceChildren();
@@ -681,7 +689,9 @@
     }
 
     const hasFilter = Boolean(state.selectedEntity || state.searchQuery);
-    els.btnClearFilter.classList.toggle("hidden", !hasFilter);
+    if (els.btnClearFilter && els.btnClearFilter.classList) {
+      els.btnClearFilter.classList.toggle("hidden", !hasFilter);
+    }
   }
 
   function matchesSearch(texts) {
@@ -1253,22 +1263,26 @@
 
     const day = state.dayData;
     if (!day) {
-      if (state.status) {
-        els.dayHeading.textContent = "Žádná data suplování nejsou momentálně k dispozici.";
-      } else {
-        els.dayHeading.textContent = "";
+      if (els.dayHeading) {
+        if (state.status) {
+          els.dayHeading.textContent = "Žádná data suplování nejsou momentálně k dispozici.";
+        } else {
+          els.dayHeading.textContent = "";
+        }
       }
-      if (els.gridView) els.gridView.replaceChildren();
-      if (els.cardsView) els.cardsView.replaceChildren();
+      if (els.gridView && els.gridView.replaceChildren) els.gridView.replaceChildren();
+      if (els.cardsView && els.cardsView.replaceChildren) els.cardsView.replaceChildren();
       return;
     }
 
-    els.dayHeading.replaceChildren();
-    els.dayHeading.appendChild(
-      el("span", "", formatShortDate(day.date, day.day_name) + " " + day.date.slice(0, 4))
-    );
-    if (day.week_label) {
-      els.dayHeading.appendChild(el("span", "week-badge", day.week_label));
+    if (els.dayHeading && els.dayHeading.replaceChildren) {
+      els.dayHeading.replaceChildren();
+      els.dayHeading.appendChild(
+        el("span", "", formatShortDate(day.date, day.day_name) + " " + day.date.slice(0, 4))
+      );
+      if (day.week_label) {
+        els.dayHeading.appendChild(el("span", "week-badge", day.week_label));
+      }
     }
 
     if (state.activeView === "cards") {
@@ -1325,37 +1339,110 @@
     kiosk.raf = requestAnimationFrame(kioskStep);
   }
 
+  function shouldAutoStartKiosk() {
+    const params =
+      typeof window !== "undefined" && window.location && window.location.search
+        ? new URLSearchParams(window.location.search)
+        : null;
+    if (params && params.get("kiosk") === "0") return false;
+    if (params && params.get("kiosk") === "1") return true;
+    return !state.isStaticExport && !detectIsMobile();
+  }
+
+  function armKioskFullscreenGesture() {
+    if (typeof window === "undefined" || !window.addEventListener) return;
+    const onFirstInteraction = () => {
+      if (kiosk.active && typeof document !== "undefined" && !document.fullscreenElement) {
+        const root = document.documentElement;
+        if (root && root.requestFullscreen) {
+          root.requestFullscreen().catch(() => {});
+        } else if (root && root.webkitRequestFullscreen) {
+          root.webkitRequestFullscreen();
+        }
+      }
+      window.removeEventListener("click", onFirstInteraction, true);
+      window.removeEventListener("touchstart", onFirstInteraction, true);
+      window.removeEventListener("pointerdown", onFirstInteraction, true);
+    };
+    window.addEventListener("click", onFirstInteraction, true);
+    window.addEventListener("touchstart", onFirstInteraction, true);
+    window.addEventListener("pointerdown", onFirstInteraction, true);
+  }
+
   function startKiosk() {
     if (kiosk.active) return;
     kiosk.active = true;
     kiosk.dir = 1;
     kiosk.last = 0;
     kiosk.pos = 0;
-    kiosk.pauseUntil = performance.now() + 1200;
-    document.body.classList.add("kiosk");
-    btnKioskExit.classList.remove("hidden");
+    kiosk.pauseUntil = (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now()) + 1200;
+    if (typeof document !== "undefined" && document.body && document.body.classList) {
+      document.body.classList.add("kiosk");
+    }
+    const exitBtn = btnKioskExit || (typeof document !== "undefined" && document.getElementById ? document.getElementById("btn-kiosk-exit") : null);
+    if (exitBtn && exitBtn.classList) {
+      exitBtn.classList.remove("hidden");
+    }
     setScrollTop(0);
     renderAll();
-    const root = document.documentElement;
-    if (root.requestFullscreen) {
-      root.requestFullscreen().catch(() => {});
-    } else if (root.webkitRequestFullscreen) {
-      root.webkitRequestFullscreen();
+    if (typeof document !== "undefined" && document.documentElement) {
+      const root = document.documentElement;
+      if (root.requestFullscreen) {
+        root.requestFullscreen().catch(() => {});
+      } else if (root.webkitRequestFullscreen) {
+        root.webkitRequestFullscreen();
+      }
     }
-    kiosk.raf = requestAnimationFrame(kioskStep);
+    armKioskFullscreenGesture();
+    if (typeof requestAnimationFrame === "function") {
+      kiosk.raf = requestAnimationFrame(kioskStep);
+    }
   }
 
   function stopKiosk() {
     if (!kiosk.active) return;
     kiosk.active = false;
-    cancelAnimationFrame(kiosk.raf);
+    if (typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(kiosk.raf);
+    }
     if (els.mainContainer) els.mainContainer.style.transform = "";
-    document.body.classList.remove("kiosk");
-    btnKioskExit.classList.add("hidden");
-    if (document.fullscreenElement && document.exitFullscreen) {
+    if (typeof document !== "undefined" && document.body && document.body.classList) {
+      document.body.classList.remove("kiosk");
+    }
+    const exitBtn = btnKioskExit || (typeof document !== "undefined" && document.getElementById ? document.getElementById("btn-kiosk-exit") : null);
+    if (exitBtn && exitBtn.classList) {
+      exitBtn.classList.add("hidden");
+    }
+    if (typeof document !== "undefined" && document.fullscreenElement && document.exitFullscreen) {
       document.exitFullscreen().catch(() => {});
     }
     renderAll();
+  }
+
+  function checkCalendarDayAndRefresh(isSseUpdate) {
+    const getDate =
+      (typeof module !== "undefined" && module.exports && module.exports.getPragueCalendarDate) ||
+      (typeof window !== "undefined" && window.getPragueCalendarDate) ||
+      getPragueCalendarDate;
+    const doLoadData =
+      (typeof module !== "undefined" && module.exports && module.exports.loadData) ||
+      (typeof window !== "undefined" && window.loadData) ||
+      loadData;
+
+    const today = getDate();
+    const dayChanged = today !== state.lastCalendarDate;
+    const kioskInactivityExpired =
+      kiosk.active &&
+      state.userManuallySelectedDate &&
+      Date.now() - state.lastUserInteraction > 300000;
+
+    if (dayChanged || kioskInactivityExpired || (!state.userManuallySelectedDate && isSseUpdate)) {
+      if (dayChanged) state.lastCalendarDate = today;
+      state.userManuallySelectedDate = false;
+      doLoadData("", false);
+    } else {
+      doLoadData(state.selectedDate, true);
+    }
   }
 
   function setupLiveUpdates() {
@@ -1364,14 +1451,19 @@
     if ("EventSource" in window) {
       const es = new EventSource("/api/events");
       es.addEventListener("update", () => {
-        loadData(state.selectedDate, true);
+        checkCalendarDayAndRefresh(true);
       });
       es.onerror = () => {};
     }
 
-    setInterval(() => {
-      loadData(state.selectedDate, true);
-    }, 25000);
+    if (typeof setInterval === "function") {
+      const timer = setInterval(() => {
+        checkCalendarDayAndRefresh(false);
+      }, 25000);
+      if (timer && typeof timer.unref === "function") {
+        timer.unref();
+      }
+    }
   }
 
   if (hasDom) {
@@ -1433,11 +1525,14 @@
       });
     }
     if (typeof window !== "undefined" && window.addEventListener) {
-      ["wheel", "touchstart"].forEach((evt) =>
+      ["wheel", "touchstart", "click", "keydown", "pointerdown"].forEach((evt) =>
         window.addEventListener(
           evt,
           () => {
-            if (kiosk.active) kiosk.pauseUntil = performance.now() + 6000;
+            state.lastUserInteraction = Date.now();
+            if (kiosk.active && (evt === "wheel" || evt === "touchstart")) {
+              kiosk.pauseUntil = (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now()) + 6000;
+            }
           },
           { passive: true }
         )
@@ -1451,6 +1546,9 @@
     }
 
     syncInitialViewDom();
+    if (shouldAutoStartKiosk()) {
+      startKiosk();
+    }
     loadData("", false);
     setupLiveUpdates();
   }
@@ -1477,6 +1575,15 @@
     window.renderDateTabs = renderDateTabs;
     window.chooseDefaultDate = chooseDefaultDate;
     window.renderAll = renderAll;
+    window.renderBannersAndHeader = renderBannersAndHeader;
+    window.getPragueCalendarDate = getPragueCalendarDate;
+    window.checkCalendarDayAndRefresh = checkCalendarDayAndRefresh;
+    window.shouldAutoStartKiosk = shouldAutoStartKiosk;
+    window.armKioskFullscreenGesture = armKioskFullscreenGesture;
+    window.startKiosk = startKiosk;
+    window.stopKiosk = stopKiosk;
+    window.kiosk = kiosk;
+    window.loadData = loadData;
     window.state = state;
     window.els = els;
   }
@@ -1504,6 +1611,15 @@
       renderDateTabs,
       chooseDefaultDate,
       renderAll,
+      renderBannersAndHeader,
+      getPragueCalendarDate,
+      checkCalendarDayAndRefresh,
+      shouldAutoStartKiosk,
+      armKioskFullscreenGesture,
+      startKiosk,
+      stopKiosk,
+      kiosk,
+      loadData,
       state,
       els
     };
