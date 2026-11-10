@@ -37,6 +37,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     export_parser.add_argument(
         "--output",
+        "--output-dir",
+        dest="output_dir",
         type=Path,
         default=Path("./dist"),
         help="Cílová složka pro statický export (výchozí: ./dist)",
@@ -54,9 +56,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "export-static":
         if args.watch_dir is not None:
             cfg = cfg.model_copy(update={"watch_dir": args.watch_dir})
-        stats = export_static_site(cfg, output_dir=args.output)
+        raw_out = getattr(args, "output_dir", None) or getattr(args, "output", None)
+        out_path = Path(raw_out) if raw_out is not None else Path("./dist")
+        stats = export_static_site(cfg, output_dir=out_path, fetch_online=True)
         print(
-            f"Statický anonymizovaný export dokončen do '{args.output}': "
+            f"Statický anonymizovaný export dokončen do '{out_path}': "
             f"{stats['days']} dnů, {stats['changes']} změn."
         )
         return 0

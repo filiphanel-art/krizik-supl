@@ -3748,7 +3748,7 @@ def test_fetcher_forward_fetch_01(tmp_path: Path) -> None:
         ok = anyio.run(fetcher.fetch_once)
         assert ok is True
 
-    assert call_count == 3
+    assert call_count == 4
     dates = storage.list_available_dates()
     date_strs = {d["date"] for d in dates}
     assert "2026-11-09" in date_strs
@@ -4160,5 +4160,310 @@ def test_midnight_rollover_auto_refresh_01() -> None:
     assert out["newCalDate"] == "2026-11-10"
     assert out["loadedTarget"] == ""
     assert out["loadedPreserve"] is False
+
+
+def test_asp_devexpress_state_01() -> None:
+    """TEST-ASP-DEVEXPRESS-STATE-01: HTML obsahuje DevExpress ASPxClientDateEdit stateObject s rawValue.
+
+    extract_asp_form_inputs vloží do slovníku DateEdit$State s {"rawValue":"1794268800000","useMinDateInsteadOfNull":false}.
+    """
+    from app.fetcher import extract_asp_form_inputs
+
+    html = """
+    <html>
+      <body>
+        <form action="./zmeny.aspx" method="post">
+          <input type="hidden" name="__VIEWSTATE" value="abc" />
+          <script type="text/javascript">
+            ASPx.createControl(ASPxClientDateEdit,'DateEdit','',{'autoPostBack':true,'stateObject':{'rawValue':'1794268800000','useMinDateInsteadOfNull':false}});
+          </script>
+          <input type="submit" name="ButtonNext" value="" />
+        </form>
+      </body>
+    </html>
+    """
+    action, data = extract_asp_form_inputs(html, button_name="ButtonNext")
+    assert action == "./zmeny.aspx"
+    assert "__VIEWSTATE" in data
+    assert "DateEdit$State" in data
+    assert data["DateEdit$State"] == '{"rawValue":"1794268800000","useMinDateInsteadOfNull":false}'
+    assert "ButtonNext" in data
+
+
+def test_asp_form_prefixed_button_01() -> None:
+    """TEST-ASP-FORM-PREFIXED-BUTTON-01: Tlačítko má v HTML atribut name="ctl00$cphmain$ButtonNext".
+
+    extract_asp_form_inputs detekuje tlačítko a přidá klíč ctl00$cphmain$ButtonNext.
+    """
+    from app.fetcher import extract_asp_form_inputs
+
+    html = """
+    <html>
+      <body>
+        <form action="./zmeny.aspx" method="post">
+          <input type="hidden" name="__VIEWSTATE" value="xyz" />
+          <input type="submit" name="ctl00$cphmain$ButtonNext" value="Next" />
+        </form>
+      </body>
+    </html>
+    """
+    action, data = extract_asp_form_inputs(html, button_name="ButtonNext")
+    assert "ctl00$cphmain$ButtonNext" in data
+    assert data["ctl00$cphmain$ButtonNext"] == "Next"
+
+
+def test_fetcher_3_days_forward_01(tmp_path: Path) -> None:
+    """TEST-FETCHER-3-DAYS-FORWARD-01: Server má publikované změny na dnešek + 3 následující dny.
+
+    fetch_once() provede 1 GET a 3 POSTy (s DateEdit$State), do SQLite uloží všechny 4 dny.
+    """
+    import urllib.parse
+
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+
+    db_path = tmp_path / "fwd_3days.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+    )
+    fetcher = WebFetcher(config=cfg, storage=storage)
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    days_data = [
+        ("09.11.2026", "9. 11.", "1794182400000"),
+        ("10.11.2026", "10. 11.", "1794268800000"),
+        ("11.11.2026", "11. 11.", "1794355200000"),
+        ("12.11.2026", "12. 11.", "1794441600000"),
+    ]
+    html_days = []
+    for d_full, d_cz, raw_val in days_data:
+        h = raw_sample.replace(b"06.11.2026", d_full.encode()).replace(b"6. 11.", d_cz.encode())
+        h = h.replace(b"1793923200000", raw_val.encode())
+        html_days.append(h)
+
+    post_payloads: list[dict[str, str]] = []
+    call_count = 0
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        if request.method == "GET":
+            return httpx.Response(200, content=html_days[0], headers={"Content-Type": "text/html; charset=windows-1250"})
+        elif request.method == "POST":
+            body_str = request.content.decode("latin-1")
+            parsed = dict(urllib.parse.parse_qsl(body_str))
+            post_payloads.append(parsed)
+
+            if call_count == 2:
+                return httpx.Response(200, content=html_days[1], headers={"Content-Type": "text/html; charset=windows-1250"})
+            elif call_count == 3:
+                return httpx.Response(200, content=html_days[2], headers={"Content-Type": "text/html; charset=windows-1250"})
+            elif call_count == 4:
+                return httpx.Response(200, content=html_days[3], headers={"Content-Type": "text/html; charset=windows-1250"})
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is True
+
+    assert call_count == 4
+    assert len(post_payloads) == 3
+    for p in post_payloads:
+        assert "DateEdit$State" in p
+        assert "rawValue" in p["DateEdit$State"]
+
+    dates = storage.list_available_dates()
+    date_strs = {d["date"] for d in dates}
+    assert date_strs == {"2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12"}
+
+
+def test_fetcher_clean_stop_2_days_02(tmp_path: Path) -> None:
+    """TEST-FETCHER-CLEAN-STOP-2-DAYS-02: Server má publikované změny na dnešek + 2 dny dopředu (3. POST vrátí stejné datum).
+
+    fetch_once() uloží 3 dny (dnešek + 2 dny dopředu) a po 3. POSTu se čistě zastaví se statusem SUCCESS.
+    """
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+
+    db_path = tmp_path / "fwd_clean_stop.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+    )
+    fetcher = WebFetcher(config=cfg, storage=storage)
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    html_day0 = raw_sample.replace(b"06.11.2026", b"09.11.2026").replace(b"6. 11.", b"9. 11.")
+    html_day1 = raw_sample.replace(b"06.11.2026", b"10.11.2026").replace(b"6. 11.", b"10. 11.")
+    html_day2 = raw_sample.replace(b"06.11.2026", b"11.11.2026").replace(b"6. 11.", b"11. 11.")
+
+    call_count = 0
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        if request.method == "GET":
+            return httpx.Response(200, content=html_day0, headers={"Content-Type": "text/html; charset=windows-1250"})
+        elif request.method == "POST":
+            if call_count == 2:
+                return httpx.Response(200, content=html_day1, headers={"Content-Type": "text/html; charset=windows-1250"})
+            elif call_count == 3:
+                return httpx.Response(200, content=html_day2, headers={"Content-Type": "text/html; charset=windows-1250"})
+            else:
+                return httpx.Response(200, content=html_day2, headers={"Content-Type": "text/html; charset=windows-1250"})
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is True
+
+    assert call_count == 4
+    assert fetcher.last_status == "SUCCESS"
+    dates = storage.list_available_dates()
+    date_strs = {d["date"] for d in dates}
+    assert date_strs == {"2026-11-09", "2026-11-10", "2026-11-11"}
+    assert "2026-11-12" not in date_strs
+
+
+def test_static_export_fetch_online_01(tmp_path: Path) -> None:
+    """TEST-STATIC-EXPORT-FETCH-ONLINE-01: Volání export_static_site(cfg, output_dir, fetch_online=True).
+
+    Před exportem zavolá WebFetcher.fetch_once() a vygeneruje day-*.json i index.json (has_data: true) pro všechny stažené dny.
+    """
+    import httpx
+
+    from app.config import AppConfig
+    from app.static_export import export_static_site
+
+    watch_dir = tmp_path / "exports"
+    watch_dir.mkdir()
+    db_path = tmp_path / "export_online.db"
+    dist_dir = tmp_path / "dist"
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    html_day0 = raw_sample.replace(b"06.11.2026", b"09.11.2026").replace(b"6. 11.", b"9. 11.")
+    html_day1 = raw_sample.replace(b"06.11.2026", b"10.11.2026").replace(b"6. 11.", b"10. 11.")
+
+    call_count = 0
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        if request.method == "GET":
+            return httpx.Response(200, content=html_day0, headers={"Content-Type": "text/html; charset=windows-1250"})
+        elif request.method == "POST":
+            if call_count == 2:
+                return httpx.Response(200, content=html_day1, headers={"Content-Type": "text/html; charset=windows-1250"})
+            else:
+                return httpx.Response(200, content=html_day1, headers={"Content-Type": "text/html; charset=windows-1250"})
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(mock_handler)
+    cfg = AppConfig(
+        db_path=db_path,
+        watch_dir=watch_dir,
+        web_enabled=True,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+    )
+
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        stats = export_static_site(cfg, output_dir=dist_dir, fetch_online=True)
+
+    assert stats["days"] >= 2
+    assert (dist_dir / "data" / "day-2026-11-09.json").is_file()
+    assert (dist_dir / "data" / "day-2026-11-10.json").is_file()
+
+    index_json = json.loads((dist_dir / "data" / "index.json").read_text(encoding="utf-8"))
+    dates_map = {d["date"]: d for d in index_json["dates"]}
+    assert dates_map.get("2026-11-09", {}).get("has_data") is True
+    assert dates_map.get("2026-11-10", {}).get("has_data") is True
+
+
+def test_api_schedule_week_window_stable_01(tmp_path: Path) -> None:
+    """TEST-API-SCHEDULE-WEEK-WINDOW-STABLE-01: Dotaz GET /api/schedule?date=<následující_pondělí> v rámci aktuálního 6denního okna.
+
+    Vrácené pole dates zůstává ukotveno na aktuální týden (Po–Pá + následující Po) a neposouvá se o týden dopředu.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.web import create_app
+
+    db_path = tmp_path / "week_stable.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(db_path=db_path)
+
+    current_dates = storage.list_school_week_dates(reference_date=None)
+    assert len(current_dates) == 6
+    next_monday = current_dates[5]["date"]
+
+    client = TestClient(create_app(config=cfg, storage=storage, start_watcher=False))
+
+    resp = client.get(f"/api/schedule?date={next_monday}")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["selected_date"] == next_monday
+    returned_dates = [d["date"] for d in data["dates"]]
+    expected_dates = [d["date"] for d in current_dates]
+    assert returned_dates == expected_dates
+
+
+def test_static_live_updates_polling_01() -> None:
+    """TEST-STATIC-LIVE-UPDATES-POLLING-01: Spuštění setupLiveUpdates() při state.isStaticExport = true v prohlížeči.
+
+    Nevytváří EventSource, ale zaregistruje periodický setInterval pro kontrolu dat a přechod dne.
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    app.state.isStaticExport = true;
+
+    let eventSourceCreated = false;
+    global.EventSource = function(url) {
+      eventSourceCreated = true;
+      this.addEventListener = () => {};
+    };
+
+    let intervalDelay = null;
+    let intervalFn = null;
+    global.setInterval = function(fn, delay) {
+      intervalFn = fn;
+      intervalDelay = delay;
+      return { unref() {} };
+    };
+
+    global.window = {
+      __FORCE_INTERVAL_FOR_TEST__: true
+    };
+
+    app.setupLiveUpdates();
+
+    console.log(JSON.stringify({
+      isStatic: app.state.isStaticExport,
+      eventSourceCreated,
+      intervalDelay,
+      hasIntervalFn: typeof intervalFn === 'function'
+    }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["isStatic"] is True
+    assert out["eventSourceCreated"] is False
+    assert out["intervalDelay"] == 25000
+    assert out["hasIntervalFn"] is True
+
 
 

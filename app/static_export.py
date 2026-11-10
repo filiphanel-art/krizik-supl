@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import json
+import logging
 import re
 import shutil
 from pathlib import Path
@@ -10,17 +13,36 @@ from pathlib import Path
 from app.anonymizer import anonymize_schedule_day
 from app.config import AppConfig
 from app.database import Storage
+from app.fetcher import WebFetcher
 from app.watcher import FolderWatcher
 
 STATIC_SRC_DIR = Path(__file__).resolve().parent / "static"
+logger = logging.getLogger("suplovani.static_export")
 
 
 def export_static_site(
     config: AppConfig,
     output_dir: Path = Path("./dist"),
+    fetch_online: bool = False,
 ) -> dict[str, int]:
     """Vygeneruje kompletní statickou a 100% anonymizovanou verzi webu do složky dist/."""
     storage = Storage(config.db_path)
+
+    if fetch_online and config.web_enabled:
+        try:
+            fetcher = WebFetcher(config, storage, logger=logger)
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    pool.submit(lambda: asyncio.run(fetcher.fetch_once())).result()
+            else:
+                asyncio.run(fetcher.fetch_once())
+        except Exception as exc:
+            logger.warning("Online stahování před statickým exportem selhalo: %s", exc)
 
     # Pokud jsou ve sledované složce soubory, nejprve je načteme (s nulovým čekáním na stabilitu při CLI exportu)
     cli_cfg = config.model_copy(update={"stability_seconds": 0.0})
