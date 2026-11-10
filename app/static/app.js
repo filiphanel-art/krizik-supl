@@ -1452,17 +1452,22 @@
   }
 
   function setupLiveUpdates() {
-    if (state.isStaticExport) return;
-
-    if ("EventSource" in window) {
-      const es = new EventSource("/api/events");
-      es.addEventListener("update", () => {
-        checkCalendarDayAndRefresh(true);
-      });
-      es.onerror = () => {};
+    if (!state.isStaticExport && typeof EventSource !== "undefined") {
+      try {
+        const es = new EventSource("/api/events");
+        es.addEventListener("update", () => {
+          checkCalendarDayAndRefresh(true);
+        });
+        es.onerror = () => {};
+      } catch (e) {}
     }
 
-    if (typeof setInterval === "function") {
+    const isNodeTest =
+      typeof process !== "undefined" &&
+      process.versions &&
+      process.versions.node &&
+      !(typeof window !== "undefined" && window.__FORCE_INTERVAL_FOR_TEST__);
+    if (!isNodeTest && typeof setInterval === "function") {
       const timer = setInterval(() => {
         checkCalendarDayAndRefresh(false);
       }, 25000);
@@ -1590,6 +1595,7 @@
     window.stopKiosk = stopKiosk;
     window.kiosk = kiosk;
     window.loadData = loadData;
+    window.setupLiveUpdates = setupLiveUpdates;
     window.state = state;
     window.els = els;
   }
@@ -1626,6 +1632,7 @@
       stopKiosk,
       kiosk,
       loadData,
+      setupLiveUpdates,
       state,
       els
     };

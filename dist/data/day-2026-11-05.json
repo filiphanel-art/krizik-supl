@@ -486,7 +486,7 @@
   ],
   "class_changes": [
     {
-      "id": 3691,
+      "id": 3870,
       "date": "2026-11-05",
       "class_name": "1A",
       "hour_from": 1,
@@ -503,11 +503,11 @@
       "orig_teacher_resolved": "",
       "note": "na 4. hod",
       "paired_hour": 4,
-      "paired_change_id": 3693,
+      "paired_change_id": 3872,
       "raw_row_text": ""
     },
     {
-      "id": 3692,
+      "id": 3871,
       "date": "2026-11-05",
       "class_name": "1A",
       "hour_from": 3,
@@ -528,7 +528,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3693,
+      "id": 3872,
       "date": "2026-11-05",
       "class_name": "1A",
       "hour_from": 4,
@@ -545,11 +545,11 @@
       "orig_teacher_resolved": "",
       "note": "z 1. hod",
       "paired_hour": 1,
-      "paired_change_id": 3691,
+      "paired_change_id": 3870,
       "raw_row_text": ""
     },
     {
-      "id": 3694,
+      "id": 3873,
       "date": "2026-11-05",
       "class_name": "1A",
       "hour_from": 5,
@@ -570,7 +570,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3695,
+      "id": 3874,
       "date": "2026-11-05",
       "class_name": "1A",
       "hour_from": 5,
@@ -591,7 +591,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3696,
+      "id": 3875,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 2,
@@ -612,7 +612,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3697,
+      "id": 3876,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 4,
@@ -633,7 +633,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3698,
+      "id": 3877,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 4,
@@ -654,7 +654,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3699,
+      "id": 3878,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 4,
@@ -675,7 +675,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3700,
+      "id": 3879,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 5,
@@ -696,7 +696,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3701,
+      "id": 3880,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 6,
@@ -717,7 +717,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3702,
+      "id": 3881,
       "date": "2026-11-05",
       "class_name": "1B",
       "hour_from": 7,
@@ -738,7 +738,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3703,
+      "id": 3882,
       "date": "2026-11-05",
       "class_name": "1C",
       "hour_from": 2,
@@ -759,7 +759,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3704,
+      "id": 3883,
       "date": "2026-11-05",
       "class_name": "1C",
       "hour_from": 2,
@@ -780,7 +780,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3705,
+      "id": 3884,
       "date": "2026-11-05",
       "class_name": "1D",
       "hour_from": 1,
@@ -801,7 +801,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3706,
+      "id": 3885,
       "date": "2026-11-05",
       "class_name": "1D",
       "hour_from": 4,
@@ -822,7 +822,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3707,
+      "id": 3886,
       "date": "2026-11-05",
       "class_name": "1D",
       "hour_from": 5,
@@ -843,7 +843,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3708,
+      "id": 3887,
       "date": "2026-11-05",
       "class_name": "2B",
       "hour_from": 1,
@@ -864,7 +864,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3709,
+      "id": 3888,
       "date": "2026-11-05",
       "class_name": "2B",
       "hour_from": 2,
@@ -885,7 +885,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3710,
+      "id": 3889,
       "date": "2026-11-05",
       "class_name": "2B",
       "hour_from": 3,
@@ -906,7 +906,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3711,
+      "id": 3890,
       "date": "2026-11-05",
       "class_name": "2C",
       "hour_from": 3,
@@ -927,7 +927,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3712,
+      "id": 3891,
       "date": "2026-11-05",
       "class_name": "2C",
       "hour_from": 4,
@@ -948,7 +948,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3713,
+      "id": 3892,
       "date": "2026-11-05",
       "class_name": "2D",
       "hour_from": 5,
@@ -969,7 +969,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3714,
+      "id": 3893,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 1,
@@ -986,11 +986,11 @@
       "orig_teacher_resolved": "",
       "note": "na 4. hod",
       "paired_hour": 4,
-      "paired_change_id": 3717,
+      "paired_change_id": 3896,
       "raw_row_text": ""
     },
     {
-      "id": 3715,
+      "id": 3894,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 2,
@@ -1011,7 +1011,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3716,
+      "id": 3895,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 3,
@@ -1032,7 +1032,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3717,
+      "id": 3896,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 4,
@@ -1049,11 +1049,11 @@
       "orig_teacher_resolved": "",
       "note": "z 1. hod",
       "paired_hour": 1,
-      "paired_change_id": 3714,
+      "paired_change_id": 3893,
       "raw_row_text": ""
     },
     {
-      "id": 3718,
+      "id": 3897,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 5,
@@ -1074,7 +1074,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3719,
+      "id": 3898,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 6,
@@ -1095,7 +1095,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3720,
+      "id": 3899,
       "date": "2026-11-05",
       "class_name": "3A",
       "hour_from": 7,
@@ -1116,7 +1116,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3721,
+      "id": 3900,
       "date": "2026-11-05",
       "class_name": "3B",
       "hour_from": 1,
@@ -1137,7 +1137,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3722,
+      "id": 3901,
       "date": "2026-11-05",
       "class_name": "4A",
       "hour_from": 1,
@@ -1158,7 +1158,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3723,
+      "id": 3902,
       "date": "2026-11-05",
       "class_name": "V1",
       "hour_from": 3,
@@ -1175,11 +1175,11 @@
       "orig_teacher_resolved": "",
       "note": "z 7. hod",
       "paired_hour": 7,
-      "paired_change_id": 3727,
+      "paired_change_id": 3906,
       "raw_row_text": ""
     },
     {
-      "id": 3724,
+      "id": 3903,
       "date": "2026-11-05",
       "class_name": "V1",
       "hour_from": 4,
@@ -1200,7 +1200,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3725,
+      "id": 3904,
       "date": "2026-11-05",
       "class_name": "V1",
       "hour_from": 5,
@@ -1221,7 +1221,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3726,
+      "id": 3905,
       "date": "2026-11-05",
       "class_name": "V1",
       "hour_from": 6,
@@ -1242,7 +1242,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3727,
+      "id": 3906,
       "date": "2026-11-05",
       "class_name": "V1",
       "hour_from": 7,
@@ -1259,11 +1259,11 @@
       "orig_teacher_resolved": "",
       "note": "na 3. hod",
       "paired_hour": 3,
-      "paired_change_id": 3723,
+      "paired_change_id": 3902,
       "raw_row_text": ""
     },
     {
-      "id": 3728,
+      "id": 3907,
       "date": "2026-11-05",
       "class_name": "V2",
       "hour_from": 1,

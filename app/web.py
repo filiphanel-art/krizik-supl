@@ -350,7 +350,11 @@ def create_app(
     async def api_schedule(
         date: str | None = Query(default=None, description="Datum ve formátu YYYY-MM-DD"),
     ) -> JSONResponse:
-        dates = storage.list_school_week_dates(reference_date=date)
+        current_week_dates = storage.list_school_week_dates(reference_date=None)
+        if date and not any(d["date"] == date for d in current_week_dates):
+            dates = storage.list_school_week_dates(reference_date=date)
+        else:
+            dates = current_week_dates
         selected_date = date if (date and any(d["date"] == date for d in dates)) else _choose_default_date(dates)
 
         day_obj = storage.get_day(selected_date) if selected_date else None

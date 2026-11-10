@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import Callable
 from contextlib import suppress
 from datetime import datetime
@@ -92,7 +93,13 @@ def extract_asp_form_inputs(
     action = str(form.get("action") or "").strip()
     data: dict[str, str] = {}
     button_found = False
+    button_key = ""
     button_val = ""
+
+    def _matches_button(n: str, target: str) -> bool:
+        if not target:
+            return False
+        return n == target or n.endswith(f"${target}") or n.endswith(f":{target}")
 
     for tag in form.find_all(["input", "select", "textarea"]):
         name = tag.get("name")
@@ -103,14 +110,16 @@ def extract_asp_form_inputs(
         tag_type = str(tag.get("type") or "text").lower()
 
         if tag_name == "input" and tag_type in ("submit", "button", "image"):
-            if name == button_name:
+            if _matches_button(name, button_name):
                 button_found = True
+                button_key = name
                 button_val = str(tag.get("value") or "")
             continue
 
         if tag_name == "button":
-            if name == button_name:
+            if _matches_button(name, button_name):
                 button_found = True
+                button_key = name
                 button_val = str(tag.get("value") or "")
             continue
 
@@ -129,8 +138,22 @@ def extract_asp_form_inputs(
         val = tag.get("value")
         data[name] = str(val) if val is not None else ""
 
-    if button_found and button_name:
-        data[button_name] = button_val
+    if button_found and button_key:
+        data[button_key] = button_val
+
+    # Vyhledání DevExpress ASPxClientDateEdit inicializace se stateObject a rawValue
+    html_str = html_content.decode("utf-8", errors="replace") if isinstance(html_content, bytes) else str(html_content)
+    m = re.search(
+        r"ASPx\.createControl\(\s*ASPxClientDateEdit\s*,\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]*)['\"]\s*,.*?(?:'stateObject'|\"stateObject\")\s*:\s*\{\s*(?:'rawValue'|\"rawValue\")\s*:\s*['\"]?(\d+)['\"]?",
+        html_str,
+        re.DOTALL,
+    )
+    if m:
+        unique_id = m.group(2) or m.group(1)
+        raw_val = m.group(3)
+        state_key = f"{unique_id}$State"
+        if state_key not in data and raw_val:
+            data[state_key] = f'{{"rawValue":"{raw_val}","useMinDateInsteadOfNull":false}}'
 
     return action, data
 
@@ -168,6 +191,11 @@ class WebFetcher:
             self.logger.error("Chyba validace URL pro web fetcher: %s", exc)
             return False
 
+        fetch_url = url
+        parts = urlsplit(url)
+        if (parts.hostname or "").lower() == "suplovani.skolakrizik.cz" and parts.path.rstrip("/") == "/next/zmeny.aspx":
+            fetch_url = "https://suplovani.skolakrizik.cz/"
+
         timeout = httpx.Timeout(timeout=10.0, connect=5.0)
         now_iso = datetime.now(PRAGUE_TZ).isoformat(timespec="seconds")
         self.last_fetch_at = now_iso
@@ -196,8 +224,15 @@ class WebFetcher:
                 resp = None
                 for attempt in range(1, max_attempts + 1):
                     try:
-                        resp = await client.get(url, headers=headers)
+                        resp = await client.get(fetch_url, headers=headers)
                         validate_web_url(str(resp.url))
+                        if resp.status_code == 404 and "suplovani.skolakrizik.cz" in fetch_url:
+                            self.logger.warning(
+                                "suplovani.skolakrizik.cz vrátil 404, zkouším https://klasifikace.skolakrizik.cz/next/zmeny.aspx"
+                            )
+                            fetch_url = "https://klasifikace.skolakrizik.cz/next/zmeny.aspx"
+                            resp = await client.get(fetch_url, headers=headers)
+                            validate_web_url(str(resp.url))
                         resp.raise_for_status()
                         content = resp.content
                         break
@@ -266,11 +301,6 @@ class WebFetcher:
                     return False
 
                 content_hash = compute_sha256(content)
-                if content_hash == self.last_hash:
-                    self.last_status = "SUCCESS"
-                    self.last_error_message = ""
-                    self.consecutive_errors = 0
-                    return True
 
                 # Parsování obsahu
                 try:
@@ -285,7 +315,7 @@ class WebFetcher:
                     return False
 
                 saved_any = False
-                host = urlsplit(url).hostname or "web"
+                host = urlsplit(self.config.web_url).hostname or "web"
                 last_date = ""
                 for day in parse_result.days:
                     day.data_source = "web"
@@ -299,15 +329,19 @@ class WebFetcher:
                     if day.date > last_date:
                         last_date = day.date
 
-                # Dopředné stahování až 2 následujících publikovaných dnů
-                max_forward_days: int = 2
+                # Dopředné stahování až 3 následujících publikovaných dnů
+                max_forward_days: int = 3
                 current_html: bytes | str = content
-                current_url: str = str(resp.url) if resp is not None else url
+                current_url: str = str(resp.url) if resp is not None else fetch_url
 
                 for forward_step in range(max_forward_days):
                     try:
                         action_rel, form_data = extract_asp_form_inputs(current_html, button_name="ButtonNext")
-                        if "ButtonNext" not in form_data:
+                        btn_found = any(
+                            k == "ButtonNext" or k.endswith("$ButtonNext") or k.endswith(":ButtonNext")
+                            for k in form_data
+                        )
+                        if not btn_found:
                             self.logger.info("Tlačítko ButtonNext chybí v HTML, ukončuji dopředné stahování.")
                             break
 

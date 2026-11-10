@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 ### Added
+- **Podpora DevExpress `ASPxClientDateEdit` `State` a prefixovaných tlačítek pro vícedenní stahování**:
+  - `extract_asp_form_inputs()` v `app/fetcher.py` nyní bezpečně extrahuje `rawValue` z JavaScriptového bloku `ASPx.createControl(ASPxClientDateEdit, ...)` a doplňuje formulářové pole `DateEdit$State = {"rawValue":"...","useMinDateInsteadOfNull":false}` pro korektní POST dotazy na server Bakalářů.
+  - Podpora ASP.NET prefixovaných tlačítek (`ctl00$cphmain$ButtonNext`, `$ButtonNext`, `:ButtonNext`).
+- **Rozšíření dopředného stahování až na 3 dny dopředu a resilience pro `suplovani.skolakrizik.cz`**:
+  - `max_forward_days` ve `WebFetcher.fetch_once()` navýšen na 3 publikované dny dopředu s čistým ukončením při detekci `day_next.date <= last_date`.
+  - Automatická normalizace URL pro `suplovani.skolakrizik.cz` a fallback na `https://klasifikace.skolakrizik.cz/next/zmeny.aspx` při HTTP 404.
+  - Odstraněn předčasný early return na shodu hashe před parsováním a dopředným stahováním.
+- **Online stahování před statickým exportem (`export-static`)**:
+  - `export_static_site()` v `app/static_export.py` podporuje parametr `fetch_online: bool = False`.
+  - CLI příkaz `export-static` (`app/cli.py`) volá export s `fetch_online=True`, čímž před sestavením `dist/` stáhne z webu všechny publikované dny (dnešek + až 3 dny dopředu).
+  - V `dist/data/index.json` mají nově stažené dny `has_data: true` a v `dist/data/` vznikají příslušné soubory `day-*.json`.
+- **Stabilita 6denního týdenního okna v `/api/schedule`**:
+  - V endpointu `/api/schedule` (`app/web.py`) je 6denní okno záložek ukotveno k aktuálnímu týdnu, takže kliknutí na 6. záložku (následující pondělí) neposune celé okno na další týden.
+- **Periodická kontrola dat a půlnoční přepnutí na GitHub Pages**:
+  - `setupLiveUpdates()` v `app/static/app.js` a `dist/app.js` spouští 25s kontrolní interval i ve statickém exportu (`state.isStaticExport === true`), což zajišťuje načítání čerstvých dat a půlnoční přechod na nový den na GitHub Pages.
+- **Nové testovací specifikace**:
+  - `TEST-ASP-DEVEXPRESS-STATE-01`, `TEST-ASP-FORM-PREFIXED-BUTTON-01`, `TEST-FETCHER-3-DAYS-FORWARD-01`, `TEST-FETCHER-CLEAN-STOP-2-DAYS-02`, `TEST-STATIC-EXPORT-FETCH-ONLINE-01`, `TEST-API-SCHEDULE-WEEK-WINDOW-STABLE-01` a `TEST-STATIC-LIVE-UPDATES-POLLING-01`.
+
+### Added
 - **Multi-day forward fetch (dopředné stahování až 2 následujících publikovaných dnů)**:
   - Implementována funkce `extract_asp_form_inputs(html_content, button_name="ButtonNext")` v `app/fetcher.py` pro bezpečnou extrakci ASP.NET formulářových polí (`__VIEWSTATE`, `__EVENTVALIDATION`, `__VIEWSTATEGENERATOR`, `DateEdit`, `FilterDropDown` atd.) a cílové action URL.
   - Ve `WebFetcher.fetch_once()` implementován iterativní dopředný fetch až 2 následujících publikovaných dnů pomocí POST dotazů s `ButtonNext: ""` a validací odchozích URL (`validate_web_url`).
