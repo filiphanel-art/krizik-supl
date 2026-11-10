@@ -3,11 +3,11 @@
   "day_name": "Pondělí",
   "week_label": "",
   "school_name": "Vyšší odborná škola a Střední průmyslová škola elektrotechnická Františka Křižíka",
-  "exported_at": "2026-11-09T19:43:43+01:00",
-  "exported_at_display": "9. 11. 2026 19:43",
+  "exported_at": "2026-11-10T03:17:51+01:00",
+  "exported_at_display": "10. 11. 2026 03:17",
   "data_source": "web",
   "source_label": "Web (klasifikace.skolakrizik.cz)",
-  "fetched_at": "2026-11-09T19:43:43+01:00",
+  "fetched_at": "2026-11-10T03:17:51+01:00",
   "absent_classes": [],
   "absent_teachers": [
     {
@@ -258,7 +258,7 @@
   ],
   "class_changes": [
     {
-      "id": 3506,
+      "id": 3748,
       "date": "2026-11-09",
       "class_name": "1A",
       "hour_from": 4,
@@ -279,7 +279,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3507,
+      "id": 3749,
       "date": "2026-11-09",
       "class_name": "1A",
       "hour_from": 7,
@@ -300,7 +300,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3508,
+      "id": 3750,
       "date": "2026-11-09",
       "class_name": "2C",
       "hour_from": 4,
@@ -321,7 +321,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3509,
+      "id": 3751,
       "date": "2026-11-09",
       "class_name": "2C",
       "hour_from": 5,
@@ -342,7 +342,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3510,
+      "id": 3752,
       "date": "2026-11-09",
       "class_name": "2C",
       "hour_from": 6,
@@ -363,7 +363,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3511,
+      "id": 3753,
       "date": "2026-11-09",
       "class_name": "2C",
       "hour_from": 7,
@@ -384,7 +384,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3512,
+      "id": 3754,
       "date": "2026-11-09",
       "class_name": "3A",
       "hour_from": 1,
@@ -405,7 +405,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3513,
+      "id": 3755,
       "date": "2026-11-09",
       "class_name": "3A",
       "hour_from": 2,
@@ -426,7 +426,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3514,
+      "id": 3756,
       "date": "2026-11-09",
       "class_name": "3A",
       "hour_from": 3,
@@ -447,7 +447,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3515,
+      "id": 3757,
       "date": "2026-11-09",
       "class_name": "3A",
       "hour_from": 6,
@@ -468,7 +468,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3516,
+      "id": 3758,
       "date": "2026-11-09",
       "class_name": "3A",
       "hour_from": 7,
@@ -489,7 +489,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3517,
+      "id": 3759,
       "date": "2026-11-09",
       "class_name": "3C",
       "hour_from": 1,
@@ -510,7 +510,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3518,
+      "id": 3760,
       "date": "2026-11-09",
       "class_name": "3C",
       "hour_from": 2,
@@ -531,7 +531,7 @@
       "raw_row_text": ""
     },
     {
-      "id": 3519,
+      "id": 3761,
       "date": "2026-11-09",
       "class_name": "3D",
       "hour_from": 7,

@@ -1346,7 +1346,13 @@
         : null;
     if (params && params.get("kiosk") === "0") return false;
     if (params && params.get("kiosk") === "1") return true;
-    return !state.isStaticExport && !detectIsMobile();
+
+    const isKioskHost =
+      typeof window !== "undefined" &&
+      (window.__AUTO_KIOSK__ === true ||
+        (window.location && window.location.hostname === "10.20.0.81"));
+
+    return Boolean(isKioskHost && !state.isStaticExport && !detectIsMobile());
   }
 
   function armKioskFullscreenGesture() {

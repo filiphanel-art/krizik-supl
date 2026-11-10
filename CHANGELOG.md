@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 ### Added
+- **Multi-day forward fetch (dopředné stahování až 2 následujících publikovaných dnů)**:
+  - Implementována funkce `extract_asp_form_inputs(html_content, button_name="ButtonNext")` v `app/fetcher.py` pro bezpečnou extrakci ASP.NET formulářových polí (`__VIEWSTATE`, `__EVENTVALIDATION`, `__VIEWSTATEGENERATOR`, `DateEdit`, `FilterDropDown` atd.) a cílové action URL.
+  - Ve `WebFetcher.fetch_once()` implementován iterativní dopředný fetch až 2 následujících publikovaných dnů pomocí POST dotazů s `ButtonNext: ""` a validací odchozích URL (`validate_web_url`).
+  - Každý dopředný den je uložen do SQLite přes `Storage.save_web_day(day_next, source_hash)` s `source_label = f"Web ({host})"`.
+  - Odolnost při dílčím síťovém výpadku dopředného dotazu: výpadek je bezpečně zalogován jako varování, stahování ukončeno a dnešek i dříve stažené dny zůstávají v SQLite nedotčeny.
+- **Rozdělení chování Kiosku pro větev `main` a `kiosk-server`**:
+  - `shouldAutoStartKiosk()` v `app/static/app.js` a `dist/app.js` na localhostu a GitHub Pages vrací striktně `false` (žádný automatický celoobrazovkový kiosk na desktopu vývojáře/uživatele).
+  - Na serveru `10.20.0.81` nebo při `window.__AUTO_KIOSK__ === true` na desktopu automaticky spustí celoobrazovkový kiosk s autoscrollem.
+  - Podporovány explicitní parametry `?kiosk=1` (vynucení kiosku kdekoli) a únikový `?kiosk=0` (vypnutí kiosku).
+- **Nové testovací specifikace**:
+  - `TEST-ASP-FORM-EXTRACT-01` a `TEST-ASP-FORM-NO-BUTTON-02` (extrakce ASP.NET formuláře).
+  - `TEST-FETCHER-FORWARD-FETCH-01`, `TEST-FETCHER-FORWARD-STOP-SAME-DATE-02`, `TEST-FETCHER-FORWARD-PARTIAL-FAIL-03` a `TEST-FETCHER-OUTAGE-PRESERVES-DB-04` (dopředný fetch a odolnost).
+  - `TEST-STORAGE-WEB-PRECEDENCE-05` (priorita webových dnů před týdenním souborovým importem).
+  - `TEST-BRANCH-MAIN-DESKTOP-NO-KIOSK-01`, `TEST-BRANCH-MAIN-FORCE-KIOSK-PARAM-02`, `TEST-BRANCH-KIOSK-SERVER-AUTO-DESKTOP-03` a `TEST-BRANCH-KIOSK-SERVER-ESCAPE-HATCH-04` (chování kiosku v různých prostředích).
+  - `TEST-UI-MULTI-DAY-TABS-ACTIVE-01` (aktivace záložek v 6denním kalendáři pro dopředné dny).
+  - `TEST-STATIC-EXPORT-MULTI-DAY-FORWARD-01` (generování platných JSONů pro všechny dopředné dny v export-static).
+  - `TEST-MIDNIGHT-ROLLOVER-AUTO-REFRESH-01` (půlnoční reset ručního výběru a přechod na aktuální den).
+
+### Added
 - **Kiosk fullscreen režim na serverovém desktopu**:
   - Funkce `shouldAutoStartKiosk()` automaticky aktivuje režim kiosk na serverovém desktopu (`!state.isStaticExport && !detectIsMobile()`) a při `?kiosk=1`. Podporován escape hatch `?kiosk=0` a zachováno standardní zobrazení na mobilních zařízeních.
   - Při startu aplikace se automaticky vyvolá `startKiosk()`, který aplikuje třídu `body.kiosk`, zobrazí tlačítko `#btn-kiosk-exit`, pokusí se o `requestFullscreen()` a registruje jednorázový posluchač uživatelského gesta (`click`, `touchstart`, `pointerdown`) pro okamžitou aktivaci nativního fullscreenu.

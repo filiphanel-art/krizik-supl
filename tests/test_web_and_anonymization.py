@@ -722,8 +722,10 @@ def test_fetch_retry_01(tmp_path: Path) -> None:
         mock_200 = httpx.Response(200, content=raw_web, request=httpx.Request("GET", cfg.web_url))
 
         with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get, \
+             patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post, \
              patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             mock_get.side_effect = [mock_503, mock_503, mock_200]
+            mock_post.side_effect = httpx.RequestError("offline")
             success = await fetcher.fetch_once()
 
             assert success is True
@@ -3270,7 +3272,7 @@ def test_kiosk_auto_start_desktop_01() -> None:
     global.window = {
       innerWidth: 1920,
       innerHeight: 1080,
-      location: { search: '' }
+      location: { search: '', hostname: '10.20.0.81' }
     };
     const autoDesktop = app.shouldAutoStartKiosk();
 
@@ -3651,4 +3653,512 @@ def test_static_export_version_19_01() -> None:
     content = html_path.read_text(encoding="utf-8")
     assert 'href="styles.css?v=19"' in content
     assert 'src="app.js?v=19"' in content
+
+
+def test_asp_form_extract_01() -> None:
+    """TEST-ASP-FORM-EXTRACT-01: Extrakce formuláře z reálného HTML Bakalářů (extract_asp_form_inputs).
+
+    Vrácena action URL, slovník obsahuje __VIEWSTATE, __EVENTVALIDATION, __VIEWSTATEGENERATOR, DateEdit, ButtonNext: "";
+    ButtonPrev je striktně vyloučen.
+    """
+    from app.fetcher import extract_asp_form_inputs
+
+    sample_bytes = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    action, data = extract_asp_form_inputs(sample_bytes, button_name="ButtonNext")
+    assert "./zmeny.aspx" in action or "zmeny.aspx" in action
+    assert "__VIEWSTATE" in data
+    assert "__EVENTVALIDATION" in data
+    assert "__VIEWSTATEGENERATOR" in data
+    assert "DateEdit" in data
+    assert data["DateEdit"] == "06.11.2026"
+    assert "ButtonNext" in data
+    assert data["ButtonNext"] == ""
+    assert "ButtonPrev" not in data
+
+
+def test_asp_form_no_button_02() -> None:
+    """TEST-ASP-FORM-NO-BUTTON-02: Extrakce z HTML bez ButtonNext.
+
+    Slovník neobsahuje klíč ButtonNext, signalizuje nemožnost dalšího posunu.
+    """
+    from app.fetcher import extract_asp_form_inputs
+
+    html = b"""
+    <html>
+      <body>
+        <form action="./zmeny.aspx" method="post">
+          <input type="hidden" name="__VIEWSTATE" value="xyz" />
+          <input type="submit" name="ButtonPrev" value="" />
+        </form>
+      </body>
+    </html>
+    """
+    action, data = extract_asp_form_inputs(html, button_name="ButtonNext")
+    assert action == "./zmeny.aspx"
+    assert "__VIEWSTATE" in data
+    assert "ButtonNext" not in data
+    assert "ButtonPrev" not in data
+
+
+def test_fetcher_forward_fetch_01(tmp_path: Path) -> None:
+    """TEST-FETCHER-FORWARD-FETCH-01: Simulace stažení dneška a 2 následujících dnů.
+
+    Všechny 3 dny jsou uloženy do SQLite s data_source = 'web', vyvolány aktualizační události SSE, fetch_once vrátí True.
+    """
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+
+    db_path = tmp_path / "fwd_fetch.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+    )
+    events: list[dict[str, object]] = []
+    fetcher = WebFetcher(config=cfg, storage=storage, on_update=lambda ev: events.append(ev))
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    # Den 0: 2026-11-09 Pondělí
+    html_day0 = raw_sample.replace(b"06.11.2026", b"09.11.2026").replace(b"6. 11.", b"9. 11.")
+    # Den 1: 2026-11-10 Úterý
+    html_day1 = raw_sample.replace(b"06.11.2026", b"10.11.2026").replace(b"6. 11.", b"10. 11.")
+    # Den 2: 2026-11-11 Středa
+    html_day2 = raw_sample.replace(b"06.11.2026", b"11.11.2026").replace(b"6. 11.", b"11. 11.")
+
+    call_count = 0
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        if request.method == "GET":
+            return httpx.Response(200, content=html_day0, headers={"Content-Type": "text/html; charset=windows-1250"})
+        elif request.method == "POST":
+            if call_count == 2:
+                return httpx.Response(200, content=html_day1, headers={"Content-Type": "text/html; charset=windows-1250"})
+            else:
+                return httpx.Response(200, content=html_day2, headers={"Content-Type": "text/html; charset=windows-1250"})
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is True
+
+    assert call_count == 3
+    dates = storage.list_available_dates()
+    date_strs = {d["date"] for d in dates}
+    assert "2026-11-09" in date_strs
+    assert "2026-11-10" in date_strs
+    assert "2026-11-11" in date_strs
+
+    for d_str in ("2026-11-09", "2026-11-10", "2026-11-11"):
+        d_obj = storage.get_day(d_str)
+        assert d_obj is not None
+        assert d_obj.data_source == "web"
+        assert d_obj.source_label == "Web (klasifikace.skolakrizik.cz)"
+
+    updated_dates = {ev["date"] for ev in events if ev.get("type") == "schedule_update"}
+    assert {"2026-11-09", "2026-11-10", "2026-11-11"}.issubset(updated_dates)
+
+
+def test_fetcher_forward_stop_same_date_02(tmp_path: Path) -> None:
+    """TEST-FETCHER-FORWARD-STOP-SAME-DATE-02: Server vrátí po ButtonNext stejné datum.
+
+    Stahování se po detekci day_next.date <= last_date čistě zastaví, nedojde k chybě.
+    """
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+
+    db_path = tmp_path / "fwd_stop.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+    )
+    fetcher = WebFetcher(config=cfg, storage=storage)
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    call_count = 0
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        return httpx.Response(200, content=raw_sample, headers={"Content-Type": "text/html; charset=windows-1250"})
+
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is True
+
+    assert call_count == 2
+    assert fetcher.last_status == "SUCCESS"
+    dates = storage.list_available_dates()
+    assert len(dates) == 1
+    assert dates[0]["date"] == "2026-11-06"
+
+
+def test_fetcher_forward_partial_fail_03(tmp_path: Path) -> None:
+    """TEST-FETCHER-FORWARD-PARTIAL-FAIL-03: Dnešek a 1. den projdou, 2. den selže.
+
+    Dnešek a 1. den zůstávají v DB, 2. krok zapíše varování, existující dny nejsou poškozeny.
+    """
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+
+    db_path = tmp_path / "fwd_fail.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+    )
+    fetcher = WebFetcher(config=cfg, storage=storage)
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    html_day0 = raw_sample.replace(b"06.11.2026", b"09.11.2026").replace(b"6. 11.", b"9. 11.")
+    html_day1 = raw_sample.replace(b"06.11.2026", b"10.11.2026").replace(b"6. 11.", b"10. 11.")
+
+    call_count = 0
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        if request.method == "GET":
+            return httpx.Response(200, content=html_day0, headers={"Content-Type": "text/html; charset=windows-1250"})
+        elif request.method == "POST":
+            if call_count == 2:
+                return httpx.Response(200, content=html_day1, headers={"Content-Type": "text/html; charset=windows-1250"})
+            else:
+                return httpx.Response(500, text="Internal Server Error")
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is True
+
+    assert call_count == 3
+    dates = storage.list_available_dates()
+    date_strs = {d["date"] for d in dates}
+    assert "2026-11-09" in date_strs
+    assert "2026-11-10" in date_strs
+    assert "2026-11-11" not in date_strs
+
+
+def test_fetcher_outage_preserves_db_04(tmp_path: Path) -> None:
+    """TEST-FETCHER-OUTAGE-PRESERVES-DB-04: Úplný výpadek Bakalářů při GET (HTTP 502/503/timeout).
+
+    Žádná data v SQLite nejsou smazána, stávající dny zachovány, status ERROR.
+    """
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+    from app.parser import parse_suplovani_html
+
+    db_path = tmp_path / "outage_db.db"
+    storage = Storage(db_path)
+    raw_file = (SAMPLES_DIR / "suplprehtrid.html").read_bytes()
+    res = parse_suplovani_html(raw_file, file_name="suplprehtrid.html")
+    storage.save_parse_result(res, file_hash="hash_outage", file_size=len(raw_file))
+
+    dates_before = storage.list_available_dates()
+    assert len(dates_before) == 5
+
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+    )
+    fetcher = WebFetcher(config=cfg, storage=storage)
+
+    def handler_502(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, text="Bad Gateway")
+
+    transport = httpx.MockTransport(handler_502)
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is False
+        assert fetcher.last_status == "ERROR"
+
+    dates_after = storage.list_available_dates()
+    assert len(dates_after) == 5
+    for d in dates_after:
+        day_obj = storage.get_day(d["date"])
+        assert day_obj is not None
+        assert day_obj.data_source == "file"
+
+
+def test_storage_web_precedence_05(tmp_path: Path) -> None:
+    """TEST-STORAGE-WEB-PRECEDENCE-05: Souborový import týdenního rozvrhu nesmí přepsat existující webový den.
+
+    Pondělí z webu je zachováno nedotčené (data_source = 'web'), zbývající dny jsou importovány.
+    """
+    from app.database import Storage
+    from app.parser import parse_suplovani_html
+    from app.parser_web import parse_web_zmeny_html
+
+    db_path = tmp_path / "precedence_05.db"
+    storage = Storage(db_path)
+
+    raw_web = (SAMPLES_DIR / "zmeny_web_sample_2026-11-09.html").read_bytes()
+    res_web = parse_web_zmeny_html(raw_web)
+    monday_web = res_web.days[0]
+    monday_web.data_source = "web"
+    monday_web.source_label = "Web (klasifikace.skolakrizik.cz)"
+    monday_web.fetched_at = "2026-11-09T08:00:00+01:00"
+    storage.save_web_day(monday_web, source_hash="mon_web_hash")
+
+    mon_pre = storage.get_day("2026-11-09")
+    assert mon_pre is not None
+    assert mon_pre.data_source == "web"
+    mon_changes_pre = len(mon_pre.class_changes)
+
+    raw_file = (SAMPLES_DIR / "suplprehtrid.html").read_bytes()
+    res_file = parse_suplovani_html(raw_file, file_name="suplprehtrid.html")
+    res_file.exported_at = "05.11.2026 08:00"
+    storage.save_parse_result(res_file, file_hash="weekly_hash", file_size=len(raw_file))
+
+    mon_post = storage.get_day("2026-11-09")
+    assert mon_post is not None
+    assert mon_post.data_source == "web"
+    assert mon_post.source_label == "Web (klasifikace.skolakrizik.cz)"
+    assert len(mon_post.class_changes) == mon_changes_pre
+
+
+def test_branch_main_desktop_no_kiosk_01() -> None:
+    """TEST-BRANCH-MAIN-DESKTOP-NO-KIOSK-01: Chování shouldAutoStartKiosk() na větvi main na desktopu.
+
+    Vrátí striktně false. Aplikace zůstává v běžném interaktivním režimu s hlavičkou, patičkou a přepínačem pohledů.
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    app.state.isStaticExport = false;
+    global.window = {
+      innerWidth: 1920,
+      innerHeight: 1080,
+      location: { search: '', hostname: 'localhost' },
+      __AUTO_KIOSK__: false
+    };
+    const kioskLocalhost = app.shouldAutoStartKiosk();
+    global.window.location.hostname = 'github.io';
+    const kioskGithub = app.shouldAutoStartKiosk();
+    console.log(JSON.stringify({ kioskLocalhost, kioskGithub }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["kioskLocalhost"] is False
+    assert out["kioskGithub"] is False
+
+
+def test_branch_main_force_kiosk_param_02() -> None:
+    """TEST-BRANCH-MAIN-FORCE-KIOSK-PARAM-02: Chování s parametrem ?kiosk=1.
+
+    Vrátí true, vyvolá startKiosk().
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    app.state.isStaticExport = false;
+    global.window = {
+      innerWidth: 1920,
+      innerHeight: 1080,
+      location: { search: '?kiosk=1', hostname: 'localhost' },
+      __AUTO_KIOSK__: false
+    };
+    const forceKiosk = app.shouldAutoStartKiosk();
+    console.log(JSON.stringify({ forceKiosk }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["forceKiosk"] is True
+
+
+def test_branch_kiosk_server_auto_desktop_03() -> None:
+    """TEST-BRANCH-KIOSK-SERVER-AUTO-DESKTOP-03: Chování na hostiteli 10.20.0.81 nebo s __AUTO_KIOSK__.
+
+    Vrátí true, automaticky se aktivuje kiosk s autoscrollem.
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    app.state.isStaticExport = false;
+    global.window = {
+      innerWidth: 1920,
+      innerHeight: 1080,
+      location: { search: '', hostname: '10.20.0.81' }
+    };
+    const kioskHost = app.shouldAutoStartKiosk();
+
+    global.window = {
+      innerWidth: 1920,
+      innerHeight: 1080,
+      location: { search: '', hostname: 'other.domain' },
+      __AUTO_KIOSK__: true
+    };
+    const kioskFlag = app.shouldAutoStartKiosk();
+
+    console.log(JSON.stringify({ kioskHost, kioskFlag }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["kioskHost"] is True
+    assert out["kioskFlag"] is True
+
+
+def test_branch_kiosk_server_escape_hatch_04() -> None:
+    """TEST-BRANCH-KIOSK-SERVER-ESCAPE-HATCH-04: Únikový parametr ?kiosk=0.
+
+    Vrátí false, kiosk se nespustí.
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    app.state.isStaticExport = false;
+    global.window = {
+      innerWidth: 1920,
+      innerHeight: 1080,
+      location: { search: '?kiosk=0', hostname: '10.20.0.81' },
+      __AUTO_KIOSK__: true
+    };
+    const escapeKiosk = app.shouldAutoStartKiosk();
+    console.log(JSON.stringify({ escapeKiosk }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["escapeKiosk"] is False
+
+
+def test_ui_multi_day_tabs_active_01() -> None:
+    """TEST-UI-MULTI-DAY-TABS-ACTIVE-01: Stav záložek v 6denním kalendáři po stažení dopředných dnů.
+
+    Záložky pro stažené dny mají has_data: true, nemají třídu .disabled ani atribut disabled.
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    let createdTabs = [];
+    app.els.dateTabs = {
+      replaceChildren() { createdTabs = []; },
+      appendChild(btn) { createdTabs.push(btn); }
+    };
+    const origEl = app.el;
+    app.el = (tag, cls, txt) => {
+      const elem = origEl(tag, cls, txt);
+      elem.setAttribute = (k, v) => { elem[k] = v; };
+      elem.addEventListener = () => {};
+      elem.classList = {
+        add(c) { elem.className = (elem.className || '') + ' ' + c; },
+        remove(c) { elem.className = (elem.className || '').replace(c, '').trim(); }
+      };
+      createdTabs.push(elem);
+      return elem;
+    };
+
+    app.state.selectedDate = '2026-11-09';
+    app.state.dates = [
+      { date: '2026-11-09', day_name: 'Pondělí', has_data: true },
+      { date: '2026-11-10', day_name: 'Úterý', has_data: true },
+      { date: '2026-11-11', day_name: 'Středa', has_data: true },
+      { date: '2026-11-12', day_name: 'Čtvrtek', has_data: false },
+      { date: '2026-11-13', day_name: 'Pátek', has_data: false },
+      { date: '2026-11-16', day_name: 'Pondělí', has_data: false }
+    ];
+
+    app.renderDateTabs();
+
+    const result = createdTabs.map(t => ({
+      className: t.className,
+      disabled: Boolean(t.disabled),
+      ariaDisabled: t['aria-disabled']
+    }));
+
+    console.log(JSON.stringify(result));
+    """
+    tabs = json.loads(_run_node_script(script))
+    assert len(tabs) == 6
+    for i in range(3):
+        assert "disabled" not in tabs[i]["className"]
+        assert tabs[i]["disabled"] is False
+    for i in range(3, 6):
+        assert "disabled" in tabs[i]["className"]
+        assert tabs[i]["disabled"] is True
+
+
+def test_static_export_multi_day_forward_01(tmp_path: Path) -> None:
+    """TEST-STATIC-EXPORT-MULTI-DAY-FORWARD-01: Příkaz python -m app export-static po uložení webových dnů.
+
+    V dist/data/ vzniknou platné JSONy pro všechny stažené dny a index.json obsahuje u všech has_data: true.
+    """
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.parser_web import parse_web_zmeny_html
+    from app.static_export import export_static_site
+
+    watch_dir = tmp_path / "exports"
+    watch_dir.mkdir()
+    db_path = tmp_path / "fwd_static.db"
+    storage = Storage(db_path)
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    for d_str, day_cz, d_full in [
+        ("2026-11-09", "9. 11.", "09.11.2026"),
+        ("2026-11-10", "10. 11.", "10.11.2026"),
+        ("2026-11-11", "11. 11.", "11.11.2026"),
+    ]:
+        html = raw_sample.replace(b"06.11.2026", d_full.encode()).replace(b"6. 11.", day_cz.encode())
+        res = parse_web_zmeny_html(html)
+        storage.save_web_day(res.days[0], source_hash=f"hash_{d_str}")
+
+    dist_dir = tmp_path / "dist"
+    cfg = AppConfig(db_path=db_path, watch_dir=watch_dir)
+    export_static_site(cfg, output_dir=dist_dir)
+
+    assert (dist_dir / "data" / "day-2026-11-09.json").is_file()
+    assert (dist_dir / "data" / "day-2026-11-10.json").is_file()
+    assert (dist_dir / "data" / "day-2026-11-11.json").is_file()
+
+    index_json = json.loads((dist_dir / "data" / "index.json").read_text(encoding="utf-8"))
+    dates_map = {d["date"]: d for d in index_json["dates"]}
+    assert dates_map.get("2026-11-09", {}).get("has_data") is True
+    assert dates_map.get("2026-11-10", {}).get("has_data") is True
+    assert dates_map.get("2026-11-11", {}).get("has_data") is True
+
+
+def test_midnight_rollover_auto_refresh_01() -> None:
+    """TEST-MIDNIGHT-ROLLOVER-AUTO-REFRESH-01: Přechod půlnoci v pásmu Europe/Prague.
+
+    state.userManuallySelectedDate se resetuje na false, vyvolá se loadData('', false).
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    let loadedTarget = null;
+    let loadedPreserve = null;
+    app.loadData = (targetDate, preserveSelection) => {
+      loadedTarget = targetDate;
+      loadedPreserve = preserveSelection;
+    };
+
+    app.state.lastCalendarDate = '2026-11-09';
+    app.state.userManuallySelectedDate = true;
+    app.state.selectedDate = '2026-11-09';
+
+    app.getPragueCalendarDate = () => '2026-11-10';
+    app.checkCalendarDayAndRefresh(false);
+
+    const manualReset = app.state.userManuallySelectedDate;
+    const newCalDate = app.state.lastCalendarDate;
+
+    console.log(JSON.stringify({ manualReset, newCalDate, loadedTarget, loadedPreserve }));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["manualReset"] is False
+    assert out["newCalDate"] == "2026-11-10"
+    assert out["loadedTarget"] == ""
+    assert out["loadedPreserve"] is False
+
 

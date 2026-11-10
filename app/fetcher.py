@@ -7,10 +7,11 @@ import logging
 from collections.abc import Callable
 from contextlib import suppress
 from datetime import datetime
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 from zoneinfo import ZoneInfo
 
 import httpx
+from bs4 import BeautifulSoup, Tag
 
 from app.config import AppConfig
 from app.database import Storage, compute_sha256
@@ -75,6 +76,65 @@ def validate_web_url(url: str) -> None:
         raise FetchError(f"Nepovolený port: {parts.port}. Povolen je výhradně port 443.")
 
 
+def extract_asp_form_inputs(
+    html_content: str | bytes,
+    button_name: str = "ButtonNext",
+) -> tuple[str, dict[str, str]]:
+    """Extrahuje action URL a hodnoty formulářových polí ASP.NET pro odeslání tlačítka."""
+    if not html_content:
+        return "", {}
+
+    soup = BeautifulSoup(html_content, "lxml")
+    form = soup.find("form")
+    if not isinstance(form, Tag):
+        return "", {}
+
+    action = str(form.get("action") or "").strip()
+    data: dict[str, str] = {}
+    button_found = False
+    button_val = ""
+
+    for tag in form.find_all(["input", "select", "textarea"]):
+        name = tag.get("name")
+        if not name or not isinstance(name, str):
+            continue
+
+        tag_name = tag.name.lower()
+        tag_type = str(tag.get("type") or "text").lower()
+
+        if tag_name == "input" and tag_type in ("submit", "button", "image"):
+            if name == button_name:
+                button_found = True
+                button_val = str(tag.get("value") or "")
+            continue
+
+        if tag_name == "button":
+            if name == button_name:
+                button_found = True
+                button_val = str(tag.get("value") or "")
+            continue
+
+        if tag_type in ("checkbox", "radio") and not tag.has_attr("checked"):
+            continue
+
+        if tag_name == "textarea":
+            data[name] = tag.get_text()
+            continue
+
+        if tag_name == "select":
+            selected = tag.find("option", selected=True) or tag.find("option")
+            data[name] = str(selected.get("value", "")) if isinstance(selected, Tag) else ""
+            continue
+
+        val = tag.get("value")
+        data[name] = str(val) if val is not None else ""
+
+    if button_found and button_name:
+        data[button_name] = button_val
+
+    return action, data
+
+
 class WebFetcher:
     """Asynchronní odolný stahovač změn z webové aplikace Bakalářů."""
 
@@ -133,6 +193,7 @@ class WebFetcher:
                 follow_redirects=True,
                 event_hooks={"request": [_validate_request_hook]},
             ) as client:
+                resp = None
                 for attempt in range(1, max_attempts + 1):
                     try:
                         resp = await client.get(url, headers=headers)
@@ -196,58 +257,131 @@ class WebFetcher:
                         self.logger.warning("Chyba sítě při stahování webu Bakalářů: %s", exc)
                         return False
 
+                if not content:
+                    self.logger.warning("Web vrátil prázdný obsah.")
+                    return False
+
+                if len(content) > self.config.max_file_size_bytes:
+                    self.logger.warning("Odpověď z webu přesáhla limit velikosti (%d B).", len(content))
+                    return False
+
+                content_hash = compute_sha256(content)
+                if content_hash == self.last_hash:
+                    self.last_status = "SUCCESS"
+                    self.last_error_message = ""
+                    self.consecutive_errors = 0
+                    return True
+
+                # Parsování obsahu
+                try:
+                    merged_codes = dict(self.config.teacher_codes)
+                    merged_codes.update(self.storage.get_teacher_directory())
+                    parse_result = parse_web_zmeny_html(content, known_teachers=merged_codes)
+                except Exception as exc:
+                    self.last_status = "ERROR"
+                    self.consecutive_errors += 1
+                    self.last_error_message = f"Chyba při parsování HTML z webu: {exc}"
+                    self.logger.error("Chyba při parsování staženého HTML: %s", exc, exc_info=True)
+                    return False
+
+                saved_any = False
+                host = urlsplit(url).hostname or "web"
+                last_date = ""
+                for day in parse_result.days:
+                    day.data_source = "web"
+                    day.source_label = f"Web ({host})"
+                    day.fetched_at = now_iso
+                    saved = self.storage.save_web_day(day, source_hash=content_hash)
+                    if saved:
+                        saved_any = True
+                        if self.on_update:
+                            self.on_update({"type": "schedule_update", "date": day.date, "source": "web"})
+                    if day.date > last_date:
+                        last_date = day.date
+
+                # Dopředné stahování až 2 následujících publikovaných dnů
+                max_forward_days: int = 2
+                current_html: bytes | str = content
+                current_url: str = str(resp.url) if resp is not None else url
+
+                for forward_step in range(max_forward_days):
+                    try:
+                        action_rel, form_data = extract_asp_form_inputs(current_html, button_name="ButtonNext")
+                        if "ButtonNext" not in form_data:
+                            self.logger.info("Tlačítko ButtonNext chybí v HTML, ukončuji dopředné stahování.")
+                            break
+
+                        post_url = urljoin(current_url, action_rel or current_url)
+                        validate_web_url(post_url)
+
+                        resp_next = await client.post(post_url, data=form_data, headers=headers)
+                        validate_web_url(str(resp_next.url))
+                        resp_next.raise_for_status()
+                        next_content = resp_next.content
+
+                        if not next_content or len(next_content) > self.config.max_file_size_bytes:
+                            self.logger.warning(
+                                "Odpověď dopředného dne %d je prázdná nebo přesahuje limit.",
+                                forward_step + 1,
+                            )
+                            break
+
+                        parse_result_next = parse_web_zmeny_html(next_content, known_teachers=merged_codes)
+                        if not parse_result_next.days:
+                            self.logger.warning("Dopředný den %d neobsahoval žádné dny.", forward_step + 1)
+                            break
+
+                        day_next = parse_result_next.days[0]
+                        if day_next.date <= last_date:
+                            self.logger.info(
+                                "Dopředný den nepřekročil datum %s (vráceno %s), konec publikovaných změn.",
+                                last_date,
+                                day_next.date,
+                            )
+                            break
+
+                        day_next.data_source = "web"
+                        day_next.source_label = f"Web ({host})"
+                        day_next.fetched_at = now_iso
+                        next_hash = compute_sha256(next_content)
+                        saved_next = self.storage.save_web_day(day_next, source_hash=next_hash)
+                        if saved_next:
+                            saved_any = True
+                            if self.on_update:
+                                self.on_update({"type": "schedule_update", "date": day_next.date, "source": "web"})
+
+                        last_date = day_next.date
+                        current_html = next_content
+                        current_url = str(resp_next.url)
+
+                    except (httpx.RequestError, httpx.HTTPStatusError) as exc:
+                        self.logger.warning(
+                            "Síťová chyba při dopředném stahování dne %d: %s (ponecháváme dosavadní dny v DB)",
+                            forward_step + 1,
+                            exc,
+                        )
+                        break
+                    except Exception as exc:
+                        self.logger.warning(
+                            "Chyba při zpracování dopředného dne %d: %s",
+                            forward_step + 1,
+                            exc,
+                        )
+                        break
+
+                self.last_hash = content_hash
+                self.last_status = "SUCCESS"
+                self.last_error_message = ""
+                self.consecutive_errors = 0
+                self.logger.info("Úspěšně zpracován webový export zmeny.aspx (uloženo: %s)", saved_any)
+                return True
+
         except Exception as exc:
             self.last_status = "ERROR"
             self.consecutive_errors += 1
             self.last_error_message = f"Neočekávaná chyba fetcheru: {exc}"
             self.logger.error("Neočekávaná chyba při stahování webu: %s", exc, exc_info=True)
             return False
-
-        if not content:
-            self.logger.warning("Web vrátil prázdný obsah.")
-            return False
-
-        if len(content) > self.config.max_file_size_bytes:
-            self.logger.warning("Odpověď z webu přesáhla limit velikosti (%d B).", len(content))
-            return False
-
-        content_hash = compute_sha256(content)
-        if content_hash == self.last_hash:
-            self.last_status = "SUCCESS"
-            self.last_error_message = ""
-            self.consecutive_errors = 0
-            return True
-
-        # Parsování obsahu
-        try:
-            merged_codes = dict(self.config.teacher_codes)
-            merged_codes.update(self.storage.get_teacher_directory())
-            parse_result = parse_web_zmeny_html(content, known_teachers=merged_codes)
-        except Exception as exc:
-            self.last_status = "ERROR"
-            self.consecutive_errors += 1
-            self.last_error_message = f"Chyba při parsování HTML z webu: {exc}"
-            self.logger.error("Chyba při parsování staženého HTML: %s", exc, exc_info=True)
-            return False
-
-        saved_any = False
-        host = urlsplit(url).hostname or "web"
-        for day in parse_result.days:
-            day.data_source = "web"
-            day.source_label = f"Web ({host})"
-            day.fetched_at = now_iso
-            saved = self.storage.save_web_day(day, source_hash=content_hash)
-            if saved:
-                saved_any = True
-                if self.on_update:
-                    self.on_update({"type": "schedule_update", "date": day.date, "source": "web"})
-
-        self.last_hash = content_hash
-        self.last_status = "SUCCESS"
-        self.last_error_message = ""
-        self.consecutive_errors = 0
-        self.logger.info("Úspěšně zpracován webový export zmeny.aspx (uloženo: %s)", saved_any)
-        return True
 
     async def run_loop(self, stop_event: asyncio.Event) -> None:
         """Periodická smyčka pro stahování dat na pozadí."""
