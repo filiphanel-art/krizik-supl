@@ -4,12 +4,12 @@
       "date": "2026-11-09",
       "day_name": "Pondělí",
       "week_label": "",
-      "exported_at": "2026-11-09T19:43:43+01:00",
-      "exported_at_display": "9. 11. 2026 19:43",
-      "updated_at": "2026-11-09T19:43:43+01:00",
+      "exported_at": "2026-11-10T03:17:51+01:00",
+      "exported_at_display": "10. 11. 2026 03:17",
+      "updated_at": "2026-11-10T03:17:51+01:00",
       "data_source": "web",
       "source_label": "Web (klasifikace.skolakrizik.cz)",
-      "fetched_at": "2026-11-09T19:43:43+01:00",
+      "fetched_at": "2026-11-10T03:17:51+01:00",
       "has_data": true
     },
     {
@@ -82,8 +82,8 @@
     "age_hours": 0.0,
     "stale_threshold_hours": 24.0,
     "last_success": {
-      "exported_at": "2026-11-09T19:43:43+01:00",
-      "processed_at": "2026-11-09T19:43:43+01:00",
+      "exported_at": "2026-11-10T03:17:51+01:00",
+      "processed_at": "2026-11-10T03:17:51+01:00",
       "days_count": 1
     },
     "anonymize": true
