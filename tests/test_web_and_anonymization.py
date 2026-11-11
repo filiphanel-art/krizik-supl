@@ -4257,7 +4257,7 @@ def test_fetcher_3_days_forward_01(tmp_path: Path) -> None:
             return httpx.Response(200, content=html_days[0], headers={"Content-Type": "text/html; charset=windows-1250"})
         elif request.method == "POST":
             body_str = request.content.decode("latin-1")
-            parsed = dict(urllib.parse.parse_qsl(body_str))
+            parsed = dict(urllib.parse.parse_qsl(body_str, keep_blank_values=True))
             post_payloads.append(parsed)
 
             if call_count == 2:
@@ -4464,6 +4464,114 @@ def test_static_live_updates_polling_01() -> None:
     assert out["eventSourceCreated"] is False
     assert out["intervalDelay"] == 25000
     assert out["hasIntervalFn"] is True
+
+
+def test_fetcher_past_week_backfill_01(tmp_path: Path) -> None:
+    """TEST-FETCHER-PAST-WEEK-BACKFILL-01: fetch_once(fetch_past_week=True) na prázdné DB ve středu.
+
+    Stáhne dopředné dny přes ButtonNext (12. 11., 13. 11.) i zpětně doplní chybějící dny aktuálního týdne
+    přes ButtonPrev (10. 11., 9. 11.). Celý týden Po-Pá (9. 11. - 13. 11.) je uložen do DB.
+    """
+    import urllib.parse
+
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+
+    db_path = tmp_path / "fwd_backfill.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+    )
+    fetcher = WebFetcher(config=cfg, storage=storage)
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    days_data = {
+        "09.11.2026": ("9. 11.", "1794182400000"),
+        "10.11.2026": ("10. 11.", "1794268800000"),
+        "11.11.2026": ("11. 11.", "1794355200000"),
+        "12.11.2026": ("12. 11.", "1794441600000"),
+        "13.11.2026": ("13. 11.", "1794528000000"),
+    }
+    html_map = {}
+    for d_full, (d_cz, raw_val) in days_data.items():
+        h = raw_sample.replace(b"06.11.2026", d_full.encode()).replace(b"6. 11.", d_cz.encode())
+        h = h.replace(b"1793923200000", raw_val.encode())
+        html_map[d_full] = h
+
+    next_step = 0
+    prev_step = 0
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal next_step, prev_step
+        if request.method == "GET":
+            # Dnešek je středa 11. 11. 2026
+            return httpx.Response(200, content=html_map["11.11.2026"], headers={"Content-Type": "text/html; charset=windows-1250"})
+        elif request.method == "POST":
+            body_str = request.content.decode("latin-1")
+            parsed = dict(urllib.parse.parse_qsl(body_str, keep_blank_values=True))
+
+            if "ButtonNext" in parsed or any(k.endswith("$ButtonNext") for k in parsed):
+                next_step += 1
+                if next_step == 1:
+                    return httpx.Response(200, content=html_map["12.11.2026"], headers={"Content-Type": "text/html; charset=windows-1250"})
+                elif next_step == 2:
+                    return httpx.Response(200, content=html_map["13.11.2026"], headers={"Content-Type": "text/html; charset=windows-1250"})
+                else:
+                    return httpx.Response(200, content=html_map["13.11.2026"], headers={"Content-Type": "text/html; charset=windows-1250"})
+
+            elif "ButtonPrev" in parsed or any(k.endswith("$ButtonPrev") for k in parsed):
+                prev_step += 1
+                if prev_step == 1:
+                    return httpx.Response(200, content=html_map["10.11.2026"], headers={"Content-Type": "text/html; charset=windows-1250"})
+                elif prev_step == 2:
+                    return httpx.Response(200, content=html_map["09.11.2026"], headers={"Content-Type": "text/html; charset=windows-1250"})
+                else:
+                    return httpx.Response(200, content=html_map["09.11.2026"], headers={"Content-Type": "text/html; charset=windows-1250"})
+
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        ok = anyio.run(lambda: fetcher.fetch_once(fetch_past_week=True))
+        assert ok is True
+
+    dates = storage.list_available_dates()
+    date_strs = {d["date"] for d in dates}
+    assert date_strs == {"2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13"}
+
+
+def test_github_workflow_valid_01() -> None:
+    """TEST-GITHUB-WORKFLOW-VALID-01: Kontrola existence a platné YAML struktury update-gh-pages.yml."""
+    import yaml
+
+    root = Path(__file__).resolve().parent.parent
+    workflow_path = root / ".github" / "workflows" / "update-gh-pages.yml"
+    if not workflow_path.is_file():
+        workflow_path = root / "scripts" / "update-gh-pages.yml"
+    assert workflow_path.is_file(), f"Workflow soubor {workflow_path} neexistuje!"
+
+    content = workflow_path.read_text(encoding="utf-8")
+    data = yaml.safe_load(content)
+    assert isinstance(data, dict)
+
+    # Spouštění: schedule (cron) i workflow_dispatch
+    triggers = data.get("on") or data.get(True)
+    assert triggers is not None
+    assert "schedule" in triggers or any("cron" in str(x) for x in triggers)
+    assert "workflow_dispatch" in triggers
+
+    # Oprávnění
+    permissions = data.get("permissions", {})
+    assert permissions.get("contents") == "write"
+
+    # Příkaz export-static v definici úloh
+    assert "export-static" in content
+
 
 
 

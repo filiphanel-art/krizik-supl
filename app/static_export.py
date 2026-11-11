@@ -38,9 +38,9 @@ def export_static_site(
 
             if loop and loop.is_running():
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    pool.submit(lambda: asyncio.run(fetcher.fetch_once())).result()
+                    pool.submit(lambda: asyncio.run(fetcher.fetch_once(fetch_past_week=True))).result()
             else:
-                asyncio.run(fetcher.fetch_once())
+                asyncio.run(fetcher.fetch_once(fetch_past_week=True))
         except Exception as exc:
             logger.warning("Online stahování před statickým exportem selhalo: %s", exc)
 

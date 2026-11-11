@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 ### Added
+- **Automatická aktualizace GitHub Pages (`.github/workflows/update-gh-pages.yml`)**:
+  - Přidán GitHub Actions workflow spouštěný každých 30 minut (`cron: '*/30 * * * *'`), při každém `push` do `main` a ručně (`workflow_dispatch`).
+  - Workflow automaticky stáhne z Bakalářů aktuální dny (včetně dopředných i zpětných dnů aktuálního týdne), vygeneruje anonymizovaný statický export a nasadí jej přímo do větve `gh-pages` přes nativní git bez závislosti na externích akcích.
+- **Zpětné doplnění předchozích dnů aktuálního týdne (`fetch_past_week=True`)**:
+  - `WebFetcher.fetch_once(fetch_past_week=True)` v `app/fetcher.py` po stažení dnešního dne a dopředných dnů zkontroluje, zda v DB nechybí některý z předchozích pracovních dnů aktuálního týdne (např. pondělí a úterý při spuštění ve středu).
+  - Pokud chybí, pomocí `ButtonPrev` dotazů zpětně stáhne a uloží chybějící dny až po pondělí.
+  - V `export_static_site()` (`app/static_export.py`) se při `fetch_online=True` automaticky předává `fetch_past_week=True`.
+- **Nové testovací specifikace**:
+  - `TEST-FETCHER-PAST-WEEK-BACKFILL-01` (zpětné doplnění předchozích dnů aktuálního týdne přes `ButtonPrev`).
+  - `TEST-GITHUB-WORKFLOW-VALID-01` (validace struktury, schedule triggeru a oprávnění GitHub Actions workflow).
+### Added
 - **Podpora DevExpress `ASPxClientDateEdit` `State` a prefixovaných tlačítek pro vícedenní stahování**:
   - `extract_asp_form_inputs()` v `app/fetcher.py` nyní bezpečně extrahuje `rawValue` z JavaScriptového bloku `ASPx.createControl(ASPxClientDateEdit, ...)` a doplňuje formulářové pole `DateEdit$State = {"rawValue":"...","useMinDateInsteadOfNull":false}` pro korektní POST dotazy na server Bakalářů.
   - Podpora ASP.NET prefixovaných tlačítek (`ctl00$cphmain$ButtonNext`, `$ButtonNext`, `:ButtonNext`).
