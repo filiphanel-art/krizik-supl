@@ -1,0 +1,285 @@
+{
+  "date": "2026-11-13",
+  "day_name": "Pátek",
+  "week_label": "",
+  "school_name": "Vyšší odborná škola a Střední průmyslová škola elektrotechnická Františka Křižíka",
+  "exported_at": "2026-11-12T00:59:15+01:00",
+  "exported_at_display": "12. 11. 2026 00:59",
+  "data_source": "web",
+  "source_label": "Web (klasifikace.skolakrizik.cz)",
+  "fetched_at": "2026-11-12T00:59:15+01:00",
+  "absent_classes": [
+    {
+      "class_name": "V2",
+      "hours": {
+        "1": "Pr",
+        "2": "Pr",
+        "3": "Pr",
+        "4": "Pr",
+        "5": "Pr",
+        "6": "Pr",
+        "7": "Pr"
+      }
+    }
+  ],
+  "absent_teachers": [
+    {
+      "teacher_full_name": "Če",
+      "teacher_normalized_name": "Če",
+      "teacher_code": "Če",
+      "hours": {
+        "1": {
+          "hour": 1,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "2": {
+          "hour": 2,
+          "raw": "..",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "3": {
+          "hour": 3,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "4": {
+          "hour": 4,
+          "raw": "....",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "5": {
+          "hour": 5,
+          "raw": "....",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "6": {
+          "hour": 6,
+          "raw": "....",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "7": {
+          "hour": 7,
+          "raw": "....",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "8": {
+          "hour": 8,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "9": {
+          "hour": 9,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "10": {
+          "hour": 10,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        }
+      }
+    },
+    {
+      "teacher_full_name": "Fo",
+      "teacher_normalized_name": "Fo",
+      "teacher_code": "Fo",
+      "hours": {
+        "1": {
+          "hour": 1,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "2": {
+          "hour": 2,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "3": {
+          "hour": 3,
+          "raw": "....",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "4": {
+          "hour": 4,
+          "raw": "....",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "5": {
+          "hour": 5,
+          "raw": "....",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "6": {
+          "hour": 6,
+          "raw": "....",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "7": {
+          "hour": 7,
+          "raw": "....",
+          "status": "ABSENT_CANCELLED",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "8": {
+          "hour": 8,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "9": {
+          "hour": 9,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "10": {
+          "hour": 10,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        }
+      }
+    },
+    {
+      "teacher_full_name": "Ko",
+      "teacher_normalized_name": "Ko",
+      "teacher_code": "Ko",
+      "hours": {
+        "1": {
+          "hour": 1,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "2": {
+          "hour": 2,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "3": {
+          "hour": 3,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "4": {
+          "hour": 4,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "5": {
+          "hour": 5,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "6": {
+          "hour": 6,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "7": {
+          "hour": 7,
+          "raw": "-",
+          "status": "ABSENT_FREE",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "8": {
+          "hour": 8,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "9": {
+          "hour": 9,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        },
+        "10": {
+          "hour": 10,
+          "raw": "",
+          "status": "PRESENT",
+          "sub_teacher_code": "",
+          "sub_teacher_resolved": ""
+        }
+      }
+    }
+  ],
+  "closed_rooms": [],
+  "class_changes": [
+    {
+      "id": 10607,
+      "date": "2026-11-13",
+      "class_name": "V2",
+      "hour_from": 1,
+      "hour_to": 7,
+      "subject": "Souvislá praxe",
+      "group_name": "",
+      "room": "",
+      "room_changed": false,
+      "change_type": "CELODENNI_AKCE",
+      "change_type_raw": "celodenní akce",
+      "sub_teacher": "",
+      "sub_teacher_changed": false,
+      "orig_teacher_code": "",
+      "orig_teacher_resolved": "",
+      "note": "Souvislá praxe",
+      "paired_hour": null,
+      "paired_change_id": null,
+      "raw_row_text": ""
+    }
+  ],
+  "supervisions": [],
+  "unrecognized": [],
+  "derived_teachers": []
+}
