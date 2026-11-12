@@ -329,8 +329,8 @@ class WebFetcher:
                     if day.date > last_date:
                         last_date = day.date
 
-                # Dopředné stahování až 3 následujících publikovaných dnů
-                max_forward_days: int = 3
+                # Dopředné stahování následujících publikovaných dnů podle konfigurace
+                max_forward_days: int = self.config.web_max_forward_days
                 current_html: bytes | str = content
                 current_url: str = str(resp.url) if resp is not None else fetch_url
 
@@ -508,6 +508,7 @@ class WebFetcher:
                 self.last_status = "SUCCESS"
                 self.last_error_message = ""
                 self.consecutive_errors = 0
+                self.storage.cleanup_old_days(retention_days=self.config.retention_days)
                 self.logger.info("Úspěšně zpracován webový export zmeny.aspx (uloženo: %s)", saved_any)
                 return True
 

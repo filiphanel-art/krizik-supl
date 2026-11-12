@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 ### Added
+- **Konfigurovatelné dopředné stahování a podpora skoku pátek->pondělí**:
+  - Přidán parametr `web_max_forward_days: int = 2` (výchozí 2 dny, max 5) do `AppConfig`, `config.yaml` a načítání z proměnné prostředí `SUPL_WEB_MAX_FORWARD_DAYS`.
+  - V pátek `ButtonNext` přirozeně načítá pondělí dalšího týdne, které se bezpečně uloží do DB.
+- **Deduplikace `save_web_day` a omezení SSE událostí**:
+  - `Storage.save_web_day(day, source_hash)` porovnává existující `source_hash` pro zdroj `web`; při nezměněném obsahu vrací `False` bez přepisování řádku a ponechává původní časové razítko `updated_at`.
+  - Ve `WebFetcher.fetch_once()` se SSE aktualizační událost `on_update` emituje pouze tehdy, když `save_web_day` vrátil `True`.
+- **Automatická retence databáze pro webový fetcher a statický export**:
+  - Po úspěšném cyklu `fetch_once()` a před generováním statického exportu v `export_static_site()` je volána automatická retence `storage.cleanup_old_days(config.retention_days)`.
+- **Optimalizace statického exportu a HTTP hlaviček**:
+  - `export_static_site()` generuje kompaktní JSON soubory bez zbytečných mezer.
+  - Endpoints `/api/schedule`, `/api/status` a `/api/fetch-web` v `app/web.py` vrací hlavičku `Cache-Control: no-cache, no-store, must-revalidate`.
+- **Klientské optimalizace a sjednocení Service Workeru**:
+  - `app/static/app.js` a `dist/app.js`: v `loadData()` při nezměněném payloadu přeskakuje náročné překreslování DOM (`renderAll()`) a pouze aktualizuje časový štítek; ve statickém exportu používá cache-busting timestamp `?_t=Date.now()`; při `!state.userManuallySelectedDate` vždy dynamicky přepočítává výchozí den `chooseDefaultDate()`.
+  - Sjednocena verze Service Workeru v `app/static/sw.js` a `dist/sw.js` na `krizik-supl-v19`.
+- **Automatizovaná synchronizace větve `gh-pages`**:
+  - Vytvořen skript `scripts/sync_gh_pages.sh` s podporou přepínače `--dry-run` a automatickým ověřením `dist/data/index.json`.
+  - Vytvořen macOS LaunchAgent `scripts/cz.skolakrizik.suplovani.ghpages.plist` pro pravidelné spouštění každých 30 minut.
+  - Doplněna provozní příručka v `docs/provoz.md` o instalaci LaunchAgenta a cron alternativu.
+- **Nové testovací specifikace**:
+  - `TEST-FETCHER-FORWARD-2-DAYS-01`, `TEST-FETCHER-FRIDAY-TO-MONDAY-01`, `TEST-STORAGE-SAVE-WEB-DEDUPLICATION-01`, `TEST-FETCHER-NO-SSE-ON-UNMODIFIED-01`, `TEST-WEB-RETENTION-ON-FETCH-01`, `TEST-API-CACHE-CONTROL-HEADERS-01`, `TEST-APP-JS-SKIP-IDENTICAL-RENDER-01`, `TEST-WEEK-WINDOW-ROLLOVER-01`, `TEST-GH-PAGES-SYNC-SCRIPT-VALID-01` a `TEST-SW-CACHE-VERSION-01`.
+
+### Added
 - **Automatická aktualizace GitHub Pages (`.github/workflows/update-gh-pages.yml`)**:
   - Přidán GitHub Actions workflow spouštěný každých 30 minut (`cron: '*/30 * * * *'`), při každém `push` do `main` a ručně (`workflow_dispatch`).
   - Workflow automaticky stáhne z Bakalářů aktuální dny (včetně dopředných i zpětných dnů aktuálního týdne), vygeneruje anonymizovaný statický export a nasadí jej přímo do větve `gh-pages` přes nativní git bez závislosti na externích akcích.

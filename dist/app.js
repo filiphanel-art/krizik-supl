@@ -400,13 +400,16 @@
 
   async function fetchSchedulePayload(targetDate) {
     if (state.isStaticExport) {
-      const idxRes = await fetch("./data/index.json", { cache: "no-cache" });
+      const cacheBust = "?_t=" + Date.now();
+      const idxRes = await fetch("./data/index.json" + cacheBust, { cache: "no-cache" });
       if (!idxRes.ok) throw new Error("Nelze načíst statický index.");
       const idxData = await idxRes.json();
-      const chosen = targetDate || chooseDefaultDate(idxData.dates);
+      const chosen = (!state.userManuallySelectedDate || !targetDate)
+        ? chooseDefaultDate(idxData.dates || [])
+        : targetDate;
       let dayObj = null;
       if (chosen) {
-        const dayRes = await fetch("./data/day-" + chosen + ".json", { cache: "no-cache" });
+        const dayRes = await fetch("./data/day-" + chosen + ".json" + cacheBust, { cache: "no-cache" });
         if (dayRes.ok) dayObj = await dayRes.json();
       }
       return {
@@ -417,17 +420,40 @@
       };
     }
 
-    const q = targetDate ? "?date=" + encodeURIComponent(targetDate) : "";
+    const q = (!state.userManuallySelectedDate || !targetDate)
+      ? ""
+      : "?date=" + encodeURIComponent(targetDate);
     const res = await fetch("/api/schedule" + q, { cache: "no-cache" });
     if (!res.ok) throw new Error("HTTP " + res.status);
     return await res.json();
   }
 
   async function loadData(targetDate, preserveSelection) {
+    const doFetchSchedulePayload =
+      (typeof module !== "undefined" && module.exports && module.exports.fetchSchedulePayload) ||
+      (typeof window !== "undefined" && window.fetchSchedulePayload) ||
+      fetchSchedulePayload;
+    const doRenderAll =
+      (typeof module !== "undefined" && module.exports && module.exports.renderAll) ||
+      (typeof window !== "undefined" && window.renderAll) ||
+      renderAll;
+    const doUpdateSourceBadge =
+      (typeof module !== "undefined" && module.exports && module.exports.updateSourceBadge) ||
+      (typeof window !== "undefined" && window.updateSourceBadge) ||
+      updateSourceBadge;
+
     try {
       const dateToLoad = preserveSelection ? state.selectedDate : targetDate;
-      const payload = await fetchSchedulePayload(dateToLoad);
+      const payload = await doFetchSchedulePayload(dateToLoad);
       state.isOffline = false;
+
+      const isDatesIdentical =
+        JSON.stringify(state.dates) === JSON.stringify(payload.dates || []);
+      const isDayIdentical =
+        JSON.stringify(state.dayData) === JSON.stringify(payload.day || null);
+      const isSelectedIdentical =
+        state.selectedDate === (payload.selected_date || "");
+
       state.dates = payload.dates || [];
       state.selectedDate = payload.selected_date || "";
       state.dayData = payload.day || null;
@@ -438,7 +464,13 @@
       } catch (_e) {
         // Ignoruj
       }
-      renderAll();
+
+      if (isDatesIdentical && isDayIdentical && isSelectedIdentical) {
+        doUpdateSourceBadge(state.dayData);
+        return;
+      }
+
+      doRenderAll();
     } catch (_err) {
       state.isOffline = true;
       try {
@@ -453,7 +485,7 @@
       } catch (_e) {
         // Ignoruj
       }
-      renderAll();
+      doRenderAll();
     }
   }
 
@@ -1595,6 +1627,7 @@
     window.stopKiosk = stopKiosk;
     window.kiosk = kiosk;
     window.loadData = loadData;
+    window.fetchSchedulePayload = fetchSchedulePayload;
     window.setupLiveUpdates = setupLiveUpdates;
     window.state = state;
     window.els = els;
@@ -1632,6 +1665,7 @@
       stopKiosk,
       kiosk,
       loadData,
+      fetchSchedulePayload,
       setupLiveUpdates,
       state,
       els

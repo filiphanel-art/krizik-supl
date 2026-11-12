@@ -3748,7 +3748,7 @@ def test_fetcher_forward_fetch_01(tmp_path: Path) -> None:
         ok = anyio.run(fetcher.fetch_once)
         assert ok is True
 
-    assert call_count == 4
+    assert call_count == 3
     dates = storage.list_available_dates()
     date_strs = {d["date"] for d in dates}
     assert "2026-11-09" in date_strs
@@ -4231,6 +4231,7 @@ def test_fetcher_3_days_forward_01(tmp_path: Path) -> None:
     cfg = AppConfig(
         db_path=db_path,
         web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+        web_max_forward_days=3,
     )
     fetcher = WebFetcher(config=cfg, storage=storage)
 
@@ -4301,6 +4302,7 @@ def test_fetcher_clean_stop_2_days_02(tmp_path: Path) -> None:
     cfg = AppConfig(
         db_path=db_path,
         web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+        web_max_forward_days=3,
     )
     fetcher = WebFetcher(config=cfg, storage=storage)
 
@@ -4571,6 +4573,353 @@ def test_github_workflow_valid_01() -> None:
 
     # Příkaz export-static v definici úloh
     assert "export-static" in content
+
+
+def test_fetcher_forward_2_days_01(tmp_path: Path) -> None:
+    """TEST-FETCHER-FORWARD-2-DAYS-01: Středa, forward=2 -> 1 GET + 2 POST, uloženy St, Čt, Pá."""
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+
+    db_path = tmp_path / "fwd_2days.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+        web_max_forward_days=2,
+    )
+    fetcher = WebFetcher(config=cfg, storage=storage)
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    days_data = [
+        ("11.11.2026", "11. 11.", "1794355200000"),  # Středa
+        ("12.11.2026", "12. 11.", "1794441600000"),  # Čtvrtek
+        ("13.11.2026", "13. 11.", "1794528000000"),  # Pátek
+    ]
+    html_days = []
+    for d_full, d_cz, raw_val in days_data:
+        h = raw_sample.replace(b"06.11.2026", d_full.encode()).replace(b"6. 11.", d_cz.encode())
+        h = h.replace(b"1793923200000", raw_val.encode())
+        html_days.append(h)
+
+    call_count = 0
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        if request.method == "GET":
+            return httpx.Response(200, content=html_days[0], headers={"Content-Type": "text/html; charset=windows-1250"})
+        elif request.method == "POST":
+            if call_count == 2:
+                return httpx.Response(200, content=html_days[1], headers={"Content-Type": "text/html; charset=windows-1250"})
+            elif call_count == 3:
+                return httpx.Response(200, content=html_days[2], headers={"Content-Type": "text/html; charset=windows-1250"})
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is True
+
+    assert call_count == 3
+    dates = storage.list_available_dates()
+    date_strs = {d["date"] for d in dates}
+    assert date_strs == {"2026-11-11", "2026-11-12", "2026-11-13"}
+
+
+def test_fetcher_friday_to_monday_01(tmp_path: Path) -> None:
+    """TEST-FETCHER-FRIDAY-TO-MONDAY-01: Pátek, ButtonNext přes víkend -> v 1. kroku uloženo pondělí."""
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+
+    db_path = tmp_path / "fri_mon.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+        web_max_forward_days=2,
+    )
+    fetcher = WebFetcher(config=cfg, storage=storage)
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+    html_fri = raw_sample.replace(b"06.11.2026", b"13.11.2026").replace(b"6. 11.", b"13. 11.").replace(b"1793923200000", b"1794528000000")
+    html_mon = raw_sample.replace(b"06.11.2026", b"16.11.2026").replace(b"6. 11.", b"16. 11.").replace(b"1793923200000", b"1794787200000")
+
+    call_count = 0
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        if request.method == "GET":
+            return httpx.Response(200, content=html_fri, headers={"Content-Type": "text/html; charset=windows-1250"})
+        elif request.method == "POST":
+            if call_count == 2:
+                return httpx.Response(200, content=html_mon, headers={"Content-Type": "text/html; charset=windows-1250"})
+            else:
+                return httpx.Response(200, content=html_mon, headers={"Content-Type": "text/html; charset=windows-1250"})
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is True
+
+    dates = storage.list_available_dates()
+    date_strs = {d["date"] for d in dates}
+    assert "2026-11-13" in date_strs
+    assert "2026-11-16" in date_strs
+    mon_day = storage.get_day("2026-11-16")
+    assert mon_day is not None
+    assert mon_day.data_source == "web"
+
+
+def test_storage_save_web_deduplication_01(tmp_path: Path) -> None:
+    """TEST-STORAGE-SAVE-WEB-DEDUPLICATION-01: stejný hash 2x -> True, pak False, updated_at nezměněn."""
+    from app.database import Storage
+    from app.models import ScheduleDay
+
+    storage = Storage(tmp_path / "dedup.db")
+    day = ScheduleDay(
+        date="2026-11-11",
+        day_name="Středa",
+        school_name="Střední škola",
+        exported_at="2026-11-11T07:30:00",
+        exported_at_display="11. 11. 2026 7:30",
+        data_source="web",
+    )
+
+    saved1 = storage.save_web_day(day, source_hash="hash_alpha")
+    assert saved1 is True
+
+    meta1 = [d for d in storage.list_available_dates() if d["date"] == "2026-11-11"][0]
+    updated_at_1 = meta1["updated_at"]
+
+    saved2 = storage.save_web_day(day, source_hash="hash_alpha")
+    assert saved2 is False
+
+    meta2 = [d for d in storage.list_available_dates() if d["date"] == "2026-11-11"][0]
+    assert meta2["updated_at"] == updated_at_1
+
+    saved3 = storage.save_web_day(day, source_hash="hash_beta")
+    assert saved3 is True
+
+
+def test_fetcher_no_sse_on_unmodified_01(tmp_path: Path) -> None:
+    """TEST-FETCHER-NO-SSE-ON-UNMODIFIED-01: identický obsah -> on_update nezavolán."""
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+
+    db_path = tmp_path / "no_sse.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+        web_max_forward_days=0,
+    )
+    events: list[dict[str, object]] = []
+    fetcher = WebFetcher(config=cfg, storage=storage, on_update=lambda ev: events.append(ev))
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+
+    def mock_handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=raw_sample, headers={"Content-Type": "text/html; charset=windows-1250"})
+
+    real_async_client = httpx.AsyncClient
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", side_effect=lambda **kw: real_async_client(transport=transport, **kw)):
+        ok1 = anyio.run(fetcher.fetch_once)
+        assert ok1 is True
+        assert len(events) == 1
+
+        ok2 = anyio.run(fetcher.fetch_once)
+        assert ok2 is True
+        assert len(events) == 1
+
+
+def test_web_retention_on_fetch_01(tmp_path: Path) -> None:
+    """TEST-WEB-RETENTION-ON-FETCH-01: dny starší 14 dní -> smazány po fetchi."""
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+    from app.models import ScheduleDay
+
+    db_path = tmp_path / "retention.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+        retention_days=14,
+        web_max_forward_days=0,
+    )
+    old_day = ScheduleDay(
+        date="2020-01-01",
+        day_name="Středa",
+        school_name="Škola",
+        exported_at="2020-01-01T08:00:00",
+        data_source="web",
+    )
+    storage.save_web_day(old_day, source_hash="hash_ancient")
+    assert storage.get_day("2020-01-01") is not None
+
+    fetcher = WebFetcher(config=cfg, storage=storage)
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+
+    def mock_handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=raw_sample, headers={"Content-Type": "text/html; charset=windows-1250"})
+
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", return_value=httpx.AsyncClient(transport=transport)):
+        ok = anyio.run(fetcher.fetch_once)
+        assert ok is True
+
+    assert storage.get_day("2020-01-01") is None
+
+
+def test_api_cache_control_headers_01(tmp_path: Path) -> None:
+    """TEST-API-CACHE-CONTROL-HEADERS-01: GET /api/schedule, /api/status -> hlavička no-cache."""
+    from starlette.testclient import TestClient
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.web import create_app
+
+    cfg = AppConfig(
+        db_path=tmp_path / "cache_ctl.db",
+        watch_dir=tmp_path / "watch",
+        web_enabled=False,
+    )
+    storage = Storage(cfg.db_path)
+    app = create_app(config=cfg, storage=storage, start_watcher=False)
+    client = TestClient(app)
+
+    res_sched = client.get("/api/schedule")
+    assert res_sched.status_code == 200
+    cc_sched = res_sched.headers.get("cache-control", "").lower()
+    assert "no-cache" in cc_sched
+    assert "no-store" in cc_sched
+
+    res_status = client.get("/api/status")
+    assert res_status.status_code == 200
+    cc_status = res_status.headers.get("cache-control", "").lower()
+    assert "no-cache" in cc_status
+
+
+def test_app_js_skip_identical_render_01() -> None:
+    """TEST-APP-JS-SKIP-IDENTICAL-RENDER-01: stejný payload -> renderAll se nevolá."""
+    script = """
+    const app = require('./app/static/app.js');
+
+    let renderCount = 0;
+    app.renderAll = () => {
+      renderCount++;
+    };
+
+    let badgeCount = 0;
+    app.updateSourceBadge = () => {
+      badgeCount++;
+    };
+
+    const mockPayload = {
+      dates: [{ date: '2026-11-11', day_name: 'Středa', has_data: true }],
+      selected_date: '2026-11-11',
+      day: { date: '2026-11-11', day_name: 'Středa', class_changes: [] },
+      status: { has_data: true }
+    };
+
+    app.fetchSchedulePayload = async () => mockPayload;
+
+    async function run() {
+      await app.loadData('', false);
+      const firstRenderCount = renderCount;
+
+      await app.loadData('', false);
+      const secondRenderCount = renderCount;
+
+      console.log(JSON.stringify({
+        firstRenderCount,
+        secondRenderCount,
+        badgeCount
+      }));
+    }
+    run();
+    """
+    out = json.loads(_run_node_script(script))
+    assert out["firstRenderCount"] == 1
+    assert out["secondRenderCount"] == 1
+    assert out["badgeCount"] >= 1
+
+
+def test_week_window_rollover_01() -> None:
+    """TEST-WEEK-WINDOW-ROLLOVER-01: So/Ne a Po po víkendu -> okno Po–Po se posune na nový týden."""
+    from datetime import date
+
+    from app.database import compute_school_week_dates
+
+    fri_dates = compute_school_week_dates(reference_date=date(2026, 11, 13))
+    assert [d["date"] for d in fri_dates] == [
+        "2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13", "2026-11-16"
+    ]
+
+    sat_dates = compute_school_week_dates(reference_date=date(2026, 11, 14))
+    assert [d["date"] for d in sat_dates] == [
+        "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-23"
+    ]
+
+    sun_dates = compute_school_week_dates(reference_date=date(2026, 11, 15))
+    assert [d["date"] for d in sun_dates] == [
+        "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-23"
+    ]
+
+    mon_dates = compute_school_week_dates(reference_date=date(2026, 11, 16))
+    assert [d["date"] for d in mon_dates] == [
+        "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-23"
+    ]
+
+
+def test_gh_pages_sync_script_valid_01() -> None:
+    """TEST-GH-PAGES-SYNC-SCRIPT-VALID-01: scripts/sync_gh_pages.sh s --dry-run projde bez pushe."""
+    import subprocess
+    root = Path(__file__).resolve().parent.parent
+    script_path = root / "scripts" / "sync_gh_pages.sh"
+    assert script_path.is_file()
+
+    proc = subprocess.run(
+        [str(script_path), "--dry-run"],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, f"Skript selhal: {proc.stderr}"
+    assert "[DRY RUN]" in proc.stdout
+    assert "dist/data/index.json" in proc.stdout
+
+
+def test_sw_cache_version_01() -> None:
+    """TEST-SW-CACHE-VERSION-01: sw.js má nastaven CACHE_NAME == krizik-supl-v19."""
+    root = Path(__file__).resolve().parent.parent
+    sw_static = root / "app" / "static" / "sw.js"
+    assert sw_static.is_file()
+    assert 'CACHE_NAME = "krizik-supl-v19"' in sw_static.read_text(encoding="utf-8")
+
+    sw_dist = root / "dist" / "sw.js"
+    if sw_dist.is_file():
+        assert 'CACHE_NAME = "krizik-supl-v19"' in sw_dist.read_text(encoding="utf-8")
+
 
 
 

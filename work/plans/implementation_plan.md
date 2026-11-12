@@ -1,67 +1,42 @@
-# Implementační plán: Automatická aktualizace GitHub Pages (2–3 dny dopředu) a zpětné doplnění týdne
+# Implementační plán: Optimalizace přepínání dnů, odolnosti stahování a aktualizace GitHub Pages
 
 ## 1. Summary
-
-### Popis problému
-Uživatel nahlásil (středa 11. 11. 2026):
-> „Tak všiml jsem si že na 127.0.0.1 je to správně a ukazuje to dva dny dopředu ale na github to neukazuje 2 dny dopředu“
-
-### Kořenová příčina
-1. Na `127.0.0.1` (`localhost`) běží živý Python server (`python -m app serve`), jehož `WebFetcher` na pozadí dnes (`11. 11.`) automaticky stáhl ze serveru Bakalářů nově publikovaný **Pátek 13. 11.** (2 dny dopředu od středy `11. 11.`) a uložil jej do `data/suplovani.db`.
-2. GitHub Pages (`filiphanel-art.github.io`) však servíruje statické JSON soubory z větve `gh-pages` (`dist/data/*.json`), které byly vygenerovány včera v úterý `10. 11.` (kdy byl 2 dny dopředu čtvrtek `12. 11.` a pátek `13. 11.` ještě neexistoval).
-3. V repozitáři chyběla automatická GitHub Actions úloha (`.github/workflows/update-gh-pages.yml`), která by pravidelně v cloudu spouštěla `python -m app export-static` a nahrávala čerstvé `dist/data/*.json` do větve `gh-pages`.
-
----
+1. Dopředné stahování: dnešek + až 2 dny dopředu (`web_max_forward_days = 2`, konfigurovatelné). V pátek ButtonNext vrací pondělí (1. krok).
+2. GitHub Pages se aktualizuje samo bez scope `workflow`: lokální skript `scripts/sync_gh_pages.sh` + macOS LaunchAgent (každých 30 min).
+3. Retence DB (`cleanup_old_days`) i pro webový fetcher a statický export.
+4. Deduplikace `save_web_day` podle `source_hash`; SSE jen při skutečné změně.
+5. Klient: přeskočit zbytečný re-render, ranní rollover na GitHub Pages, cache-busting, `Cache-Control`, sjednocení verze service workeru.
+6. Okno Po–Po se posouvá samo (compute_school_week_dates, rollover) – ověřit testem, nerozbít.
 
 ## 2. Interfaces & Data Flow
-
-### 2.1 Zpětné doplnění aktuálního týdne v `app/fetcher.py` (`fetch_past_week`)
-Když `export-static` běží v čistém prostředí (např. GitHub Actions runner uprostřed týdne ve středu nebo ve čtvrtek), `zmeny.aspx` při prvotním GET dotazu vrátí dnešní den (`11. 11.`). Aby v kalendáři na GitHub Pages nechyběly dřívější dny aktuálního týdne (`Pondělí 9. 11.`, `Úterý 10. 11.`), rozšíříme `WebFetcher.fetch_once()`:
-```python
-async def fetch_once(self, fetch_past_week: bool = False) -> bool:
-```
-- Výchozí hodnota `fetch_past_week: bool = False` zachovává 100% zpětnou kompatibilitu se všemi stávajícími unit testy.
-- Pokud je `fetch_past_week=True` (voláno z `export_static_site(..., fetch_online=True)`):
-  - Po stažení dnešního dne (`day0`) a až 3 dopředných dnů přes `ButtonNext` zkontroluje, zda je `day0` v pracovním týdnu (`weekday() in (1, 2, 3, 4)` – Út až Pá) a zda v `self.storage` chybí některý ze dnů od pondělí aktuálního týdne do včerejška.
-  - Pokud některý předchozí den aktuálního týdne v DB chybí, použije výchozí HTML dnešního dne (`initial_html`, `initial_url`) a pomocí POST dotazů s `ButtonPrev` (max `day0.weekday()` kroků, nejvýše 4) stáhne a uloží předchozí dny aktuálního týdne až po pondělí (`day_prev.date >= monday_iso`).
-
-### 2.2 GitHub Actions Workflow (`.github/workflows/update-gh-pages.yml`)
-- Automatický workflow spouštěný:
-  - Periodicky každých 30 minut během dne (`cron: '*/30 * * * *'`),
-  - Při každém `push` do větve `main`,
-  - Ručně přes `workflow_dispatch`.
-- Kroky:
-  1. `actions/checkout@v4` (větev `main`)
-  2. `actions/setup-python@v5` (`python-version: '3.12'`)
-  3. `pip install -r requirements.txt`
-  4. `python -m app export-static --output dist` (stáhne z Bakalářů dnešek + až 3 dny dopředu + případně chybějící dny od pondělí a vygeneruje anonymizované `dist/data/*.json`)
-  5. Nasazení obsahu složky `dist/` do větve `gh-pages`.
-
-### 2.3 Okamžitá aktualizace `dist/data/`
-- Spuštění `.venv/bin/python -m app export-static` vygeneruje `dist/data/day-2026-11-13.json` a aktualizuje `dist/data/index.json`, takže na GitHub Pages budou ihned aktivní záložky:
-  - `Pondělí 9. 11.` (`has_data: true`)
-  - `Úterý 10. 11.` (`has_data: true`)
-  - `Středa 11. 11.` (`has_data: true` – dnešek)
-  - `Čtvrtek 12. 11.` (`has_data: true` – 1 den dopředu)
-  - `Pátek 13. 11.` (`has_data: true` – 2 dny dopředu)
-
----
+- `app/config.py`, `config.yaml`: `web_max_forward_days: int = Field(default=2, ge=0, le=5)`, env `SUPL_WEB_MAX_FORWARD_DAYS`.
+- `Storage.save_web_day(day, source_hash) -> bool`: pokud existuje řádek se stejným `source_hash` -> vrátit False bez zápisu; jinak zapsat, vrátit True. Zachovat chování, že web má přednost před souborem.
+- `WebFetcher.fetch_once`: `max_forward_days = config.web_max_forward_days`; `on_update` jen když `save_web_day` vrátí True; po cyklu `storage.cleanup_old_days(config.retention_days)`. Výpadek nikdy nemaže data.
+- `export_static_site`: před exportem `cleanup_old_days`; export jen dnů v retenci + okno; JSON kompaktně (bez indent=2), pokud to nerozbije testy.
+- `app/web.py`: `Cache-Control: no-cache, no-store, must-revalidate` na `/api/schedule`, `/api/status`, `/api/fetch-web`.
+- `app/static/app.js` (+ `dist/app.js`): v `loadData` při shodném payloadu (dates + day) jen aktualizovat časový štítek, nevolat `renderAll`; ve statickém exportu `index.json?_t=Date.now()` a `day-*.json?_t=`; při `!state.userManuallySelectedDate` vždy znovu `chooseDefaultDate`; zachovat Po–Po a rollover půlnoci.
+- `app/static/sw.js`: `CACHE_NAME = "krizik-supl-v19"` (shodně s `?v=19`).
+- `scripts/sync_gh_pages.sh` (+ `--dry-run`): aktivuje `.venv`, `python -m app export-static`, ověří `dist/data/index.json`, push `git subtree split --prefix dist` do `gh-pages` (--force). `scripts/cz.skolakrizik.suplovani.ghpages.plist` (LaunchAgent, StartInterval 1800) + stručný návod do `docs/provoz.md`.
 
 ## 3. Dependencies
-Žádné nové Python ani JS závislosti.
-
----
+Žádné nové (fastapi, httpx, beautifulsoup4, pydantic, pyyaml; bash/launchd nativně).
 
 ## 4. Test Specs
-
-| Test ID | Typ | Scénář | Očekávaný výsledek |
-|---|---|---|---|
-| `TEST-FETCHER-PAST-WEEK-BACKFILL-01` | Integration | `fetch_once(fetch_past_week=True)` spuštěno ve středu `2026-11-11` na prázdné DB | Stáhne dopředné dny přes `ButtonNext` (`12. 11.`, `13. 11.`) a zároveň doplní chybějící dny aktuálního týdne přes `ButtonPrev` (`10. 11.`, `9. 11.`) |
-| `TEST-GITHUB-WORKFLOW-VALID-01` | Unit | Kontrola existence a platné YAML struktury `.github/workflows/update-gh-pages.yml` | Soubor existuje, je validní YAML, obsahuje `schedule`, `workflow_dispatch`, `export-static` a bezpečné permissions |
-
----
+| ID | Scénář | Očekávání |
+|---|---|---|
+| TEST-FETCHER-FORWARD-2-DAYS-01 | Středa, forward=2 | 1 GET + 2 POST, uloženy St, Čt, Pá |
+| TEST-FETCHER-FRIDAY-TO-MONDAY-01 | Pátek, ButtonNext přes víkend | v 1. kroku uloženo pondělí |
+| TEST-STORAGE-SAVE-WEB-DEDUPLICATION-01 | stejný hash 2x | True, pak False, updated_at nezměněn |
+| TEST-FETCHER-NO-SSE-ON-UNMODIFIED-01 | identický obsah | on_update nezavolán |
+| TEST-WEB-RETENTION-ON-FETCH-01 | dny starší 14 dní | smazány po fetchi |
+| TEST-API-CACHE-CONTROL-HEADERS-01 | GET /api/schedule, /api/status | hlavička no-cache |
+| TEST-APP-JS-SKIP-IDENTICAL-RENDER-01 | stejný payload | renderAll se nevolá |
+| TEST-WEEK-WINDOW-ROLLOVER-01 | So/Ne a Po po víkendu | okno Po–Po se posune na nový týden |
+| TEST-GH-PAGES-SYNC-SCRIPT-VALID-01 | `--dry-run` | skript projde, bez pushe |
+| TEST-SW-CACHE-VERSION-01 | sw.js | CACHE_NAME == krizik-supl-v19 |
 
 ## 5. Security Considerations
-- **GitHub Actions bezpečné oprávnění**: Workflow má explicitně deklarované minimální oprávnění `permissions: contents: write` a žádné secrets nejsou vypisovány do logu.
-- **SSRF & Input Validation**: Zpětné kroky přes `ButtonPrev` používají stejnou funkci `extract_asp_form_inputs(..., button_name="ButtonPrev")` a validaci `validate_web_url()`.
-- **Anonymizace**: Všechny exportované dny v `dist/data/*.json` zůstávají plně anonymizované (pouze zkratky učitelů).
+SSRF `validate_web_url` beze změny; skript nepíše tajemství do logů, pushuje jen do `gh-pages`; anonymizace exportu zachována; nulový `innerHTML`; retence v transakci s `PRAGMA foreign_keys = ON`.
+
+## 6. Open Questions
+Kde poběží sync (Mac LaunchAgent vs. cron na 10.20.0.81) – implementujeme Mac LaunchAgent, cron varianta jen v dokumentaci.
