@@ -7,7 +7,7 @@ import logging
 import re
 from collections.abc import Callable
 from contextlib import suppress
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlsplit
 from zoneinfo import ZoneInfo
 
@@ -180,7 +180,7 @@ class WebFetcher:
         self.consecutive_errors: int = 0
         self.is_running: bool = False
 
-    async def fetch_once(self) -> bool:
+    async def fetch_once(self, fetch_past_week: bool = False) -> bool:
         """Stáhne a zpracuje aktuální zmeny.aspx z webu Bakalářů bez pádu při chybách."""
         url = self.config.web_url.strip()
         try:
@@ -402,6 +402,107 @@ class WebFetcher:
                             exc,
                         )
                         break
+
+                # Zpětné doplnění předchozích dnů aktuálního týdne (Út - Pá), pokud je požadováno
+                if fetch_past_week and parse_result.days:
+                    day0_str = parse_result.days[0].date
+                    try:
+                        day0_date = datetime.fromisoformat(day0_str).date()
+                        weekday = day0_date.weekday()  # 0=Po, 1=Út, 2=St, 3=Čt, 4=Pá
+                        if 1 <= weekday <= 4:
+                            monday_date = day0_date - timedelta(days=weekday)
+                            monday_iso = monday_date.isoformat()
+                            available_dates = {d["date"] for d in self.storage.list_available_dates()}
+                            missing_past = any(
+                                (monday_date + timedelta(days=i)).isoformat() not in available_dates
+                                for i in range(weekday)
+                            )
+                            if missing_past:
+                                self.logger.info(
+                                    "V DB chybí předchozí dny aktuálního týdne (Po %s až %s), doplňuji přes ButtonPrev...",
+                                    monday_iso,
+                                    day0_str,
+                                )
+                                prev_html: bytes | str = content
+                                prev_url: str = str(resp.url) if resp is not None else fetch_url
+                                prev_last_date = day0_str
+
+                                for _ in range(weekday):
+                                    try:
+                                        action_rel, form_data = extract_asp_form_inputs(
+                                            prev_html, button_name="ButtonPrev"
+                                        )
+                                        btn_found = any(
+                                            k == "ButtonPrev"
+                                            or k.endswith("$ButtonPrev")
+                                            or k.endswith(":ButtonPrev")
+                                            for k in form_data
+                                        )
+                                        if not btn_found:
+                                            self.logger.info(
+                                                "Tlačítko ButtonPrev chybí v HTML, ukončuji zpětné stahování."
+                                            )
+                                            break
+
+                                        post_url = urljoin(prev_url, action_rel or prev_url)
+                                        validate_web_url(post_url)
+
+                                        resp_prev = await client.post(post_url, data=form_data, headers=headers)
+                                        validate_web_url(str(resp_prev.url))
+                                        resp_prev.raise_for_status()
+                                        prev_content = resp_prev.content
+
+                                        if not prev_content or len(prev_content) > self.config.max_file_size_bytes:
+                                            self.logger.warning("Odpověď zpětného dne je prázdná nebo přesahuje limit.")
+                                            break
+
+                                        parse_result_prev = parse_web_zmeny_html(
+                                            prev_content, known_teachers=merged_codes
+                                        )
+                                        if not parse_result_prev.days:
+                                            self.logger.warning("Zpětný den neobsahoval žádná data.")
+                                            break
+
+                                        day_prev = parse_result_prev.days[0]
+                                        if day_prev.date >= prev_last_date or day_prev.date < monday_iso:
+                                            self.logger.info(
+                                                "Zpětný den %s je mimo rozsah týdne (pondělí %s) nebo nepřekročil %s, konec.",
+                                                day_prev.date,
+                                                monday_iso,
+                                                prev_last_date,
+                                            )
+                                            break
+
+                                        day_prev.data_source = "web"
+                                        day_prev.source_label = f"Web ({host})"
+                                        day_prev.fetched_at = now_iso
+                                        prev_hash = compute_sha256(prev_content)
+                                        saved_prev = self.storage.save_web_day(day_prev, source_hash=prev_hash)
+                                        if saved_prev:
+                                            saved_any = True
+                                            if self.on_update:
+                                                self.on_update(
+                                                    {"type": "schedule_update", "date": day_prev.date, "source": "web"}
+                                                )
+
+                                        prev_last_date = day_prev.date
+                                        prev_html = prev_content
+                                        prev_url = str(resp_prev.url)
+
+                                    except (httpx.RequestError, httpx.HTTPStatusError) as exc:
+                                        self.logger.warning(
+                                            "Síťová chyba při zpětném stahování předchozího dne: %s",
+                                            exc,
+                                        )
+                                        break
+                                    except Exception as exc:
+                                        self.logger.warning(
+                                            "Chyba při zpracování zpětného dne: %s",
+                                            exc,
+                                        )
+                                        break
+                    except Exception as exc:
+                        self.logger.warning("Chyba při inicializaci zpětného doplňování týdne: %s", exc)
 
                 self.last_hash = content_hash
                 self.last_status = "SUCCESS"
