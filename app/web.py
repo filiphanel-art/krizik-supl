@@ -382,7 +382,8 @@ def create_app(
                 "selected_date": selected_date,
                 "day": day_obj.model_dump() if day_obj else None,
                 "status": public_status,
-            }
+            },
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
         )
 
     @app.get("/api/status")
@@ -392,7 +393,10 @@ def create_app(
         summary["watch_dir"] = str(cfg.watch_dir)
         summary["anonymize"] = cfg.anonymize
         summary["fetcher"] = fetcher.get_status()
-        return JSONResponse(summary)
+        return JSONResponse(
+            summary,
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
 
     @app.post("/api/fetch-web")
     async def api_fetch_web(_auth: None = Depends(verify_admin_access)) -> JSONResponse:
@@ -403,7 +407,8 @@ def create_app(
                 "ok": success,
                 "status": "success" if success else "failed",
                 "fetcher": fetcher.get_status(),
-            }
+            },
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
         )
 
     @app.get("/admin/status")
@@ -416,7 +421,10 @@ def create_app(
         if format == "json" or "application/json" in request.headers.get("accept", ""):
             summary["watcher_running"] = watcher.is_running
             summary["watch_dir"] = str(cfg.watch_dir)
-            return JSONResponse(summary)
+            return JSONResponse(
+                summary,
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+            )
         html_body = _render_admin_html(summary, watcher.is_running, str(cfg.watch_dir))
         return HTMLResponse(html_body)
 

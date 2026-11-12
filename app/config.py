@@ -35,6 +35,7 @@ class AppConfig(BaseModel):
     web_url: str = Field(default="https://klasifikace.skolakrizik.cz/next/zmeny.aspx")
     web_poll_interval_seconds: float = Field(default=300.0, ge=60.0)
     web_enabled: bool = Field(default=True)
+    web_max_forward_days: int = Field(default=2, ge=0, le=5)
 
 
 def _parse_bool(val: str) -> bool:
@@ -70,6 +71,7 @@ def load_config(config_path: Path | None = None) -> AppConfig:
         "SUPL_WEB_URL": ("web_url", str),
         "SUPL_WEB_POLL_INTERVAL_SECONDS": ("web_poll_interval_seconds", float),
         "SUPL_WEB_ENABLED": ("web_enabled", _parse_bool),
+        "SUPL_WEB_MAX_FORWARD_DAYS": ("web_max_forward_days", int),
     }
 
     for env_key, (field_name, converter) in env_map.items():

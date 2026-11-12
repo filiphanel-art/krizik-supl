@@ -1,4 +1,4 @@
-const CACHE_NAME = "krizik-supl-v7";
+const CACHE_NAME = "krizik-supl-v19";
 const STATIC_ASSETS = [
   "./",
   "./index.html",

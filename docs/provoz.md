@@ -75,4 +75,44 @@ Pokud se zobrazí oranžové varování **„Upozornění: Data výpisu jsou sta
 2. **Obnova po smazání databáze `data/suplovani.db`:**
    - Pokud dojde ke ztrátě souboru `data/suplovani.db`, stačí nechat ve sdílené složce aktuální HTML export a restartovat službu (`docker compose restart`). Služba při startu složku ihned načte a databázi znovu vytvoří.
 3. **Týdenní prázdniny / stará data po více než 14 dnech:**
-   - Pokud nebyl po dobu delší než `SUPL_RETENTION_DAYS` (výchozí 14 dní) proveden žádný nový export, automatické чиštění vymaže dny starší než 14 dní. Pro prodloužení historie nastavte v `.env` např. `SUPL_RETENTION_DAYS=30`.
+   - Pokud nebyl po dobu delší než `SUPL_RETENTION_DAYS` (výchozí 14 dní) proveden žádný nový export, automatické čištění vymaže dny starší než 14 dní. Pro prodloužení historie nastavte v `.env` např. `SUPL_RETENTION_DAYS=30`.
+
+---
+
+## 6. Automatická synchronizace statického exportu na GitHub Pages
+
+Pro veřejné zobrazení suplování mimo intranet škola využívá statický anonymizovaný export do větve `gh-pages`.
+
+### A. macOS LaunchAgent (doporučeno na správcovském Macu)
+Pravidelné spouštění každých 30 minut zajišťuje konfigurační soubor `scripts/cz.skolakrizik.suplovani.ghpages.plist`.
+
+1. **Instalace agenta:**
+   ```bash
+   cp scripts/cz.skolakrizik.suplovani.ghpages.plist ~/Library/LaunchAgents/
+   launchctl load ~/Library/LaunchAgents/cz.skolakrizik.suplovani.ghpages.plist
+   ```
+2. **Kontrola běhu a logů:**
+   ```bash
+   tail -f /tmp/suplovani_ghpages.log
+   tail -f /tmp/suplovani_ghpages.err
+   ```
+3. **Zastavení agenta:**
+   ```bash
+   launchctl unload ~/Library/LaunchAgents/cz.skolakrizik.suplovani.ghpages.plist
+   ```
+
+### B. Linux Cron (alternativa pro školní server)
+Pokud synchronizace běží na Linuxovém serveru (např. Debian/Ubuntu v intranetu):
+```bash
+crontab -e
+```
+Přidejte řádek pro běh každých 30 minut:
+```cron
+*/30 * * * * cd /opt/krizik_supl && ./scripts/sync_gh_pages.sh >> /var/log/supl_ghpages.log 2>&1
+```
+
+### C. Ruční ověření nanečisto (--dry-run)
+Pro ověření funkčnosti exportu bez odeslání do repozitáře:
+```bash
+./scripts/sync_gh_pages.sh --dry-run
+```

@@ -49,6 +49,9 @@ def export_static_site(
     watcher = FolderWatcher(config=cli_cfg, storage=storage)
     watcher.scan_once()
 
+    # Automatická retence databáze před exportem
+    storage.cleanup_old_days(retention_days=config.retention_days)
+
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -100,7 +103,7 @@ def export_static_site(
         anon_day = anonymize_schedule_day(day_obj, code_map)
         day_json_path = data_dir / f"day-{d_str}.json"
         day_json_path.write_text(
-            json.dumps(anon_day.model_dump(), ensure_ascii=False, indent=2),
+            json.dumps(anon_day.model_dump(), ensure_ascii=False, separators=(",", ":")),
             encoding="utf-8",
         )
         exported_days += 1
@@ -131,7 +134,7 @@ def export_static_site(
         },
     }
     (data_dir / "index.json").write_text(
-        json.dumps(index_payload, ensure_ascii=False, indent=2),
+        json.dumps(index_payload, ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8",
     )
 

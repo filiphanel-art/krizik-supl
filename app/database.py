@@ -506,10 +506,19 @@ class Storage:
 
         Webový import zmeny.aspx je pro daný den autoritativním zdrojem v reálném čase.
         Aktualizuje výhradně tento 1 den a ostatní dny týdne ponechává nedotčené.
+        Pokud řádek se stejným source_hash a data_source == 'web' již existuje,
+        vrátí False bez zápisu (nemění updated_at ani data v DB).
         """
         now_iso = datetime.now(PRAGUE_TZ).isoformat(timespec="seconds")
         with self._connect() as conn:
             cur = conn.cursor()
+            existing = cur.execute(
+                "SELECT source_hash, data_source, updated_at FROM schedule_days WHERE date = ?",
+                (day.date,),
+            ).fetchone()
+            if existing and existing["source_hash"] == source_hash and str(existing["data_source"] or "") == "web":
+                return False
+
             # Smaže výhradně tento 1 daný den
             cur.execute("DELETE FROM schedule_days WHERE date = ?", (day.date,))
 
