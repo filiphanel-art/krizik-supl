@@ -121,6 +121,7 @@ def export_static_site(
 
     index_payload = {
         "dates": dates,
+        "available_dates": sorted(dates_to_export),
         "status": {
             "has_data": exported_days > 0,
             "has_parse_error": False,

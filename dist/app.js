@@ -398,22 +398,139 @@
     return datesList[0] ? datesList[0].date : "";
   }
 
+  function parseIsoToUtcDate(isoStr) {
+    const parts = isoStr.split("-");
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    return new Date(Date.UTC(y, m - 1, d));
+  }
+
+  function formatUtcDateToIso(dt) {
+    return dt.toISOString().slice(0, 10);
+  }
+
+  function getMondayForDate(dt) {
+    const weekday = dt.getUTCDay(); // 0=Neděle, 1=Pondělí, ..., 6=Sobota
+    const res = new Date(dt.getTime());
+    if (weekday === 6) {
+      res.setUTCDate(res.getUTCDate() + 2);
+    } else if (weekday === 0) {
+      res.setUTCDate(res.getUTCDate() + 1);
+    } else {
+      res.setUTCDate(res.getUTCDate() - (weekday - 1));
+    }
+    return res;
+  }
+
+  function getWindowIsoDatesForDate(refIso) {
+    const dt = parseIsoToUtcDate(refIso);
+    const mon = getMondayForDate(dt);
+    const offsets = [0, 1, 2, 3, 4, 7];
+    return offsets.map((off) => {
+      const d = new Date(mon.getTime());
+      d.setUTCDate(d.getUTCDate() + off);
+      return formatUtcDateToIso(d);
+    });
+  }
+
+  function computeClientSchoolWeekDates(referenceDateIso, indexDates, availableDates) {
+    const getDate =
+      (typeof module !== "undefined" && module.exports && module.exports.getPragueCalendarDate) ||
+      (typeof window !== "undefined" && window.getPragueCalendarDate) ||
+      getPragueCalendarDate;
+
+    const todayIso = getDate();
+    const currentWindow = getWindowIsoDatesForDate(todayIso);
+
+    let targetIso;
+    if (referenceDateIso && !currentWindow.includes(referenceDateIso)) {
+      targetIso = referenceDateIso;
+    } else {
+      targetIso = todayIso;
+    }
+
+    const monday = getMondayForDate(parseIsoToUtcDate(targetIso));
+    const offsets = [0, 1, 2, 3, 4, 7];
+    const czechDays = ["Neděle", "Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota"];
+
+    const safeIndexDates = Array.isArray(indexDates) ? indexDates : [];
+    const safeAvail = Array.isArray(availableDates) ? availableDates : [];
+
+    return offsets.map((off) => {
+      const cur = new Date(monday.getTime());
+      cur.setUTCDate(cur.getUTCDate() + off);
+      const isoStr = formatUtcDateToIso(cur);
+      const dayName = czechDays[cur.getUTCDay()];
+
+      const existing = safeIndexDates.find((d) => d && d.date === isoStr);
+      const inAvail = safeAvail.includes(isoStr);
+
+      if (existing) {
+        return {
+          date: isoStr,
+          day_name: existing.day_name || dayName,
+          week_label: existing.week_label || "",
+          exported_at: existing.exported_at || "",
+          exported_at_display: existing.exported_at_display || "",
+          updated_at: existing.updated_at || "",
+          data_source: existing.data_source || "",
+          source_label: existing.source_label || "",
+          fetched_at: existing.fetched_at || "",
+          has_data: Boolean(existing.has_data || inAvail)
+        };
+      } else {
+        return {
+          date: isoStr,
+          day_name: dayName,
+          week_label: "",
+          exported_at: "",
+          exported_at_display: "",
+          updated_at: "",
+          data_source: "",
+          source_label: "",
+          fetched_at: "",
+          has_data: Boolean(inAvail)
+        };
+      }
+    });
+  }
+
   async function fetchSchedulePayload(targetDate) {
     if (state.isStaticExport) {
       const cacheBust = "?_t=" + Date.now();
       const idxRes = await fetch("./data/index.json" + cacheBust, { cache: "no-cache" });
       if (!idxRes.ok) throw new Error("Nelze načíst statický index.");
       const idxData = await idxRes.json();
-      const chosen = (!state.userManuallySelectedDate || !targetDate)
-        ? chooseDefaultDate(idxData.dates || [])
-        : targetDate;
+
+      const computedDates = computeClientSchoolWeekDates(
+        targetDate,
+        idxData.dates || [],
+        idxData.available_dates || []
+      );
+
+      const chosen = (targetDate && computedDates.some((d) => d.date === targetDate && d.has_data !== false))
+        ? targetDate
+        : chooseDefaultDate(computedDates);
+
       let dayObj = null;
       if (chosen) {
         const dayRes = await fetch("./data/day-" + chosen + ".json" + cacheBust, { cache: "no-cache" });
-        if (dayRes.ok) dayObj = await dayRes.json();
+        if (dayRes.ok) {
+          dayObj = await dayRes.json();
+          const dEntry = computedDates.find((d) => d.date === chosen);
+          if (dEntry) {
+            dEntry.has_data = true;
+            if (dayObj.exported_at && !dEntry.exported_at) dEntry.exported_at = dayObj.exported_at;
+            if (dayObj.exported_at_display && !dEntry.exported_at_display) dEntry.exported_at_display = dayObj.exported_at_display;
+            if (dayObj.data_source && !dEntry.data_source) dEntry.data_source = dayObj.data_source;
+            if (dayObj.source_label && !dEntry.source_label) dEntry.source_label = dayObj.source_label;
+            if (dayObj.fetched_at && !dEntry.fetched_at) dEntry.fetched_at = dayObj.fetched_at;
+          }
+        }
       }
       return {
-        dates: idxData.dates || [],
+        dates: computedDates,
         selected_date: chosen,
         day: dayObj,
         status: idxData.status || {}
@@ -1617,6 +1734,7 @@
     window.renderViewTabs = renderViewTabs;
     window.renderDateTabs = renderDateTabs;
     window.chooseDefaultDate = chooseDefaultDate;
+    window.computeClientSchoolWeekDates = computeClientSchoolWeekDates;
     window.renderAll = renderAll;
     window.renderBannersAndHeader = renderBannersAndHeader;
     window.getPragueCalendarDate = getPragueCalendarDate;
@@ -1655,6 +1773,7 @@
       renderViewTabs,
       renderDateTabs,
       chooseDefaultDate,
+      computeClientSchoolWeekDates,
       renderAll,
       renderBannersAndHeader,
       getPragueCalendarDate,

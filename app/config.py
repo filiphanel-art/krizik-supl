@@ -36,6 +36,8 @@ class AppConfig(BaseModel):
     web_poll_interval_seconds: float = Field(default=300.0, ge=60.0)
     web_enabled: bool = Field(default=True)
     web_max_forward_days: int = Field(default=2, ge=0, le=5)
+    gh_pages_auto_push: bool = Field(default=False)
+    gh_pages_sync_script: Path = Field(default=Path("./scripts/sync_gh_pages.sh"))
 
 
 def _parse_bool(val: str) -> bool:
@@ -72,6 +74,8 @@ def load_config(config_path: Path | None = None) -> AppConfig:
         "SUPL_WEB_POLL_INTERVAL_SECONDS": ("web_poll_interval_seconds", float),
         "SUPL_WEB_ENABLED": ("web_enabled", _parse_bool),
         "SUPL_WEB_MAX_FORWARD_DAYS": ("web_max_forward_days", int),
+        "SUPL_GH_PAGES_AUTO_PUSH": ("gh_pages_auto_push", _parse_bool),
+        "SUPL_GH_PAGES_SYNC_SCRIPT": ("gh_pages_sync_script", Path),
     }
 
     for env_key, (field_name, converter) in env_map.items():

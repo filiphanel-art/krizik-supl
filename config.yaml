@@ -42,6 +42,7 @@ web_url: "https://klasifikace.skolakrizik.cz/next/zmeny.aspx"
 web_poll_interval_seconds: 300.0
 web_enabled: true
 web_max_forward_days: 2
+gh_pages_auto_push: true
 
 # Oficiální slovník zkratek učitelů (Učitelé_zkratky.xlsx - 55 pedagogů)
 teacher_codes:

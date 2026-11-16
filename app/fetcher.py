@@ -8,6 +8,7 @@ import re
 from collections.abc import Callable
 from contextlib import suppress
 from datetime import datetime, timedelta
+from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 from zoneinfo import ZoneInfo
 
@@ -179,6 +180,35 @@ class WebFetcher:
         self.last_hash: str = ""
         self.consecutive_errors: int = 0
         self.is_running: bool = False
+        self._last_exported_calendar_day: str = ""
+
+    async def _trigger_static_sync(self) -> bool:
+        """Spustí přegenerování statického exportu a push do větve gh-pages."""
+        try:
+            import subprocess
+
+            from app.static_export import export_static_site
+
+            self.logger.info("Spouštím automatický statický export pro GitHub Pages...")
+            await asyncio.to_thread(export_static_site, self.config, Path("./dist"), False)
+            script_path = self.config.gh_pages_sync_script
+            if script_path.is_file():
+                self.logger.info("Spouštím synchronizaci gh-pages (%s --skip-export)...", script_path)
+                res = await asyncio.to_thread(
+                    subprocess.run,
+                    ["bash", str(script_path), "--skip-export"],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                if res.returncode != 0:
+                    self.logger.warning("Synchronizace gh-pages selhala (kód %d): %s", res.returncode, res.stderr)
+                    return False
+            return True
+        except Exception as exc:
+            self.logger.warning("Automatický statický export nebo synchronizace gh-pages selhala: %s", exc)
+            return False
 
     async def fetch_once(self, fetch_past_week: bool = False) -> bool:
         """Stáhne a zpracuje aktuální zmeny.aspx z webu Bakalářů bez pádu při chybách."""
@@ -509,6 +539,14 @@ class WebFetcher:
                 self.last_error_message = ""
                 self.consecutive_errors = 0
                 self.storage.cleanup_old_days(retention_days=self.config.retention_days)
+
+                today_iso = datetime.now(PRAGUE_TZ).date().isoformat()
+                should_sync = saved_any or (self._last_exported_calendar_day != today_iso)
+                if should_sync:
+                    self._last_exported_calendar_day = today_iso
+                    if self.config.gh_pages_auto_push:
+                        await self._trigger_static_sync()
+
                 self.logger.info("Úspěšně zpracován webový export zmeny.aspx (uloženo: %s)", saved_any)
                 return True
 
