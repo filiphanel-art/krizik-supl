@@ -62,5 +62,5 @@ git add -A
 git commit -m "Automatický export suplování $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
 REMOTE_URL=$(git -C "$REPO_ROOT" config --get remote.origin.url || echo "origin")
-git push "$REMOTE_URL" gh-pages:gh-pages --force
+git -c credential.https://github.com.helper= -c credential.helper=osxkeychain push "$REMOTE_URL" gh-pages:gh-pages --force || git push "$REMOTE_URL" gh-pages:gh-pages --force
 echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] Úspěšně nahráno do větve gh-pages."
