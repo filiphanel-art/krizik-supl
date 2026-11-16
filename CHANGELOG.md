@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 ### Added
+- **Klientský dynamický přepočet 6denního okna na GitHub Pages (`computeClientSchoolWeekDates`)**:
+  - Implementována funkce `computeClientSchoolWeekDates(referenceDateIso, indexDates, availableDates)` v `app/static/app.js` a `dist/app.js` se 100% paritou k backendové funkci v Pythonu.
+  - Zajišťuje automatický rollover dnů i týdnů na GitHub Pages i při statickém `index.json`, včetně zachování ukotvení okna k aktuálnímu týdnu a podpory skoku přes víkend.
+  - Exportér `export_static_site` do `dist/data/index.json` nově ukládá pole `available_dates` pro přesnou klientskou detekci dostupných publikovaných dnů.
+- **Automatický statický export a bleskový push v běžícím serveru**:
+  - Do konfigurace přidány volby `gh_pages_auto_push: bool` a `gh_pages_sync_script: Path` (ovladatelné i přes `SUPL_GH_PAGES_AUTO_PUSH`).
+  - `WebFetcher` po stažení změn z webu nebo při půlnočním přechodu automaticky spouští statický export a rychlý push do `gh-pages` přes `--skip-export`.
+  - Upraven `scripts/sync_gh_pages.sh` s podporou přepínače `--skip-export` a zkrácen interval LaunchAgenta na 15 minut (900 s).
+  - Odstraněn zastaralý skript `scripts/update-gh-pages.yml` (striktně bez pomalých GitHub Actions).
+- **Nové testovací specifikace**:
+  - `TEST-CLIENT-WEEK-CALC-MONDAY-01`, `TEST-CLIENT-WEEK-CALC-WEEKEND-02`, `TEST-CLIENT-STATIC-STALE-INDEX-ROLLOVER-03`, `TEST-STATIC-EXPORT-AVAILABLE-DATES-04`, `TEST-FETCHER-AUTO-SYNC-TRIGGER-05` a `TEST-SYNC-SCRIPT-SKIP-EXPORT-06`.
+
+### Added
 - **Konfigurovatelné dopředné stahování a podpora skoku pátek->pondělí**:
   - Přidán parametr `web_max_forward_days: int = 2` (výchozí 2 dny, max 5) do `AppConfig`, `config.yaml` a načítání z proměnné prostředí `SUPL_WEB_MAX_FORWARD_DAYS`.
   - V pátek `ButtonNext` přirozeně načítá pondělí dalšího týdne, které se bezpečně uloží do DB.

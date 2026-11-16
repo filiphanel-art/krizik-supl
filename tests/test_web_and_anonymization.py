@@ -4547,32 +4547,169 @@ def test_fetcher_past_week_backfill_01(tmp_path: Path) -> None:
     assert date_strs == {"2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13"}
 
 
-def test_github_workflow_valid_01() -> None:
-    """TEST-GITHUB-WORKFLOW-VALID-01: Kontrola existence a platné YAML struktury update-gh-pages.yml."""
-    import yaml
+def test_client_week_calc_monday_01() -> None:
+    """TEST-CLIENT-WEEK-CALC-MONDAY-01: computeClientSchoolWeekDates('2026-11-16', [], []) vrátí 6 dnů: 2026-11-16 až 2026-11-20 + 2026-11-23."""
+    script = """
+    const app = require('./app/static/app.js');
+    const res = app.computeClientSchoolWeekDates('2026-11-16', [], []);
+    console.log(JSON.stringify(res.map(d => d.date)));
+    """
+    out = json.loads(_run_node_script(script))
+    assert out == ["2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-23"]
+
+
+def test_client_week_calc_weekend_02() -> None:
+    """TEST-CLIENT-WEEK-CALC-WEEKEND-02: computeClientSchoolWeekDates('2026-11-14', [], []) a '2026-11-15' posunou okno na 2026-11-16 až 2026-11-23."""
+    script = """
+    const app = require('./app/static/app.js');
+    const resSat = app.computeClientSchoolWeekDates('2026-11-14', [], []);
+    const resSun = app.computeClientSchoolWeekDates('2026-11-15', [], []);
+    console.log(JSON.stringify({
+      sat: resSat.map(d => d.date),
+      sun: resSun.map(d => d.date)
+    }));
+    """
+    out = json.loads(_run_node_script(script))
+    expected = ["2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-23"]
+    assert out["sat"] == expected
+    assert out["sun"] == expected
+
+
+def test_client_static_stale_index_rollover_03() -> None:
+    """TEST-CLIENT-STATIC-STALE-INDEX-ROLLOVER-03: index.json má v dates starý týden, available_dates má 2026-11-16 a 2026-11-18, dnes 2026-11-16.
+
+    computeClientSchoolWeekDates vrátí nový týden 16. 11. - 23. 11. s has_data: true u 16. 11. a 18. 11.
+    """
+    script = """
+    const app = require('./app/static/app.js');
+    app.getPragueCalendarDate = () => '2026-11-16';
+
+    const oldIndexDates = [
+      { date: '2026-11-09', day_name: 'Pondělí', has_data: true },
+      { date: '2026-11-10', day_name: 'Úterý', has_data: true },
+      { date: '2026-11-11', day_name: 'Středa', has_data: true },
+      { date: '2026-11-12', day_name: 'Čtvrtek', has_data: true },
+      { date: '2026-11-13', day_name: 'Pátek', has_data: true },
+      { date: '2026-11-16', day_name: 'Pondělí', has_data: false }
+    ];
+    const availableDates = ['2026-11-16', '2026-11-18'];
+
+    const res = app.computeClientSchoolWeekDates(null, oldIndexDates, availableDates);
+    console.log(JSON.stringify(res.map(d => ({ date: d.date, has_data: d.has_data }))));
+    """
+    out = json.loads(_run_node_script(script))
+    date_map = {d["date"]: d["has_data"] for d in out}
+    assert date_map["2026-11-16"] is True
+    assert date_map["2026-11-18"] is True
+    assert date_map["2026-11-17"] is False
+    assert date_map["2026-11-19"] is False
+    assert date_map["2026-11-20"] is False
+    assert date_map["2026-11-23"] is False
+
+
+def test_static_export_available_dates_04(tmp_path: Path) -> None:
+    """TEST-STATIC-EXPORT-AVAILABLE-DATES-04: Spuštění export_static_site() vygeneruje dist/data/index.json s polem available_dates."""
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.models import ScheduleDay
+    from app.static_export import export_static_site
+
+    db_path = tmp_path / "avail_dates.db"
+    storage = Storage(db_path)
+    storage.save_web_day(
+        ScheduleDay(
+            date="2026-11-16",
+            day_name="Pondělí",
+            school_name="Škola",
+            exported_at="2026-11-16T08:00:00",
+            data_source="web",
+        ),
+        source_hash="h1",
+    )
+    storage.save_web_day(
+        ScheduleDay(
+            date="2026-11-18",
+            day_name="Středa",
+            school_name="Škola",
+            exported_at="2026-11-16T08:00:00",
+            data_source="web",
+        ),
+        source_hash="h2",
+    )
+
+    dist_dir = tmp_path / "dist"
+    cfg = AppConfig(db_path=db_path)
+    export_static_site(cfg, output_dir=dist_dir)
+
+    idx_file = dist_dir / "data" / "index.json"
+    assert idx_file.is_file()
+    idx_data = json.loads(idx_file.read_text(encoding="utf-8"))
+    assert "available_dates" in idx_data
+    assert isinstance(idx_data["available_dates"], list)
+    assert "2026-11-16" in idx_data["available_dates"]
+    assert "2026-11-18" in idx_data["available_dates"]
+
+
+def test_fetcher_auto_sync_trigger_05(tmp_path: Path) -> None:
+    """TEST-FETCHER-AUTO-SYNC-TRIGGER-05: WebFetcher.fetch_once() s gh_pages_auto_push=True při saved_any=True zavolá _trigger_static_sync()."""
+    from unittest.mock import AsyncMock
+
+    import anyio
+    import httpx
+
+    from app.config import AppConfig
+    from app.database import Storage
+    from app.fetcher import WebFetcher
+
+    db_path = tmp_path / "auto_sync.db"
+    storage = Storage(db_path)
+    cfg = AppConfig(
+        db_path=db_path,
+        web_url="https://klasifikace.skolakrizik.cz/next/zmeny.aspx",
+        web_max_forward_days=0,
+        gh_pages_auto_push=True,
+    )
+    fetcher = WebFetcher(config=cfg, storage=storage)
+    fetcher._trigger_static_sync = AsyncMock(return_value=True)  # type: ignore[method-assign]
+
+    raw_sample = (SAMPLES_DIR / "zmeny_web_sample.html").read_bytes()
+
+    def mock_handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=raw_sample, headers={"Content-Type": "text/html; charset=windows-1250"})
+
+    real_async_client = httpx.AsyncClient
+    transport = httpx.MockTransport(mock_handler)
+    with unittest.mock.patch("httpx.AsyncClient", side_effect=lambda **kw: real_async_client(transport=transport, **kw)):
+        # 1. První fetch uloží nová data -> zavolá _trigger_static_sync
+        ok1 = anyio.run(fetcher.fetch_once)
+        assert ok1 is True
+        assert fetcher._trigger_static_sync.call_count == 1
+
+        # 2. Druhý fetch se stejnými daty ve stejný den -> saved_any je False, den se nezměnil -> _trigger_static_sync se nevolá
+        ok2 = anyio.run(fetcher.fetch_once)
+        assert ok2 is True
+        assert fetcher._trigger_static_sync.call_count == 1
+
+
+def test_sync_script_skip_export_06() -> None:
+    """TEST-SYNC-SCRIPT-SKIP-EXPORT-06: ./scripts/sync_gh_pages.sh --dry-run --skip-export ověří dist/data/index.json a skončí s kódem 0."""
+    import subprocess
 
     root = Path(__file__).resolve().parent.parent
-    workflow_path = root / ".github" / "workflows" / "update-gh-pages.yml"
-    if not workflow_path.is_file():
-        workflow_path = root / "scripts" / "update-gh-pages.yml"
-    assert workflow_path.is_file(), f"Workflow soubor {workflow_path} neexistuje!"
+    script_path = root / "scripts" / "sync_gh_pages.sh"
+    assert script_path.is_file()
 
-    content = workflow_path.read_text(encoding="utf-8")
-    data = yaml.safe_load(content)
-    assert isinstance(data, dict)
-
-    # Spouštění: schedule (cron) i workflow_dispatch
-    triggers = data.get("on") or data.get(True)
-    assert triggers is not None
-    assert "schedule" in triggers or any("cron" in str(x) for x in triggers)
-    assert "workflow_dispatch" in triggers
-
-    # Oprávnění
-    permissions = data.get("permissions", {})
-    assert permissions.get("contents") == "write"
-
-    # Příkaz export-static v definici úloh
-    assert "export-static" in content
+    proc = subprocess.run(
+        [str(script_path), "--dry-run", "--skip-export"],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, f"Skript selhal: {proc.stderr}"
+    assert "[DRY RUN]" in proc.stdout
+    assert "--skip-export" in proc.stdout
+    assert "dist/data/index.json" in proc.stdout
 
 
 def test_fetcher_forward_2_days_01(tmp_path: Path) -> None:

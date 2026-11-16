@@ -2,12 +2,15 @@
 set -euo pipefail
 
 # Skript pro automatickou synchronizaci statického exportu do větve gh-pages
-# Použití: ./scripts/sync_gh_pages.sh [--dry-run]
+# Použití: ./scripts/sync_gh_pages.sh [--dry-run] [--skip-export]
 
 DRY_RUN=0
+SKIP_EXPORT=0
 for arg in "$@"; do
   if [ "$arg" = "--dry-run" ]; then
     DRY_RUN=1
+  elif [ "$arg" = "--skip-export" ]; then
+    SKIP_EXPORT=1
   fi
 done
 
@@ -21,8 +24,12 @@ if [ -f "$REPO_ROOT/.venv/bin/activate" ]; then
   source "$REPO_ROOT/.venv/bin/activate"
 fi
 
-echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] Spouštím export-static..."
-python -m app export-static --output dist
+if [ "$SKIP_EXPORT" -eq 0 ]; then
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] Spouštím export-static..."
+  python -m app export-static --output dist
+else
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] Přeskakuji export-static (--skip-export)."
+fi
 
 # Ověření výstupu
 INDEX_FILE="$REPO_ROOT/dist/data/index.json"
@@ -55,5 +62,5 @@ git add -A
 git commit -m "Automatický export suplování $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
 REMOTE_URL=$(git -C "$REPO_ROOT" config --get remote.origin.url || echo "origin")
-git push "$REMOTE_URL" gh-pages:gh-pages --force
+git -c credential.https://github.com.helper= -c credential.helper=osxkeychain push "$REMOTE_URL" gh-pages:gh-pages --force || git push "$REMOTE_URL" gh-pages:gh-pages --force
 echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] Úspěšně nahráno do větve gh-pages."

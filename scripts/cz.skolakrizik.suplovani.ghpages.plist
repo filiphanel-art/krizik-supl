@@ -11,7 +11,7 @@
         <string>cd "$HOME/Downloads/krizik_supl" &amp;&amp; ./scripts/sync_gh_pages.sh</string>
     </array>
     <key>StartInterval</key>
-    <integer>1800</integer>
+    <integer>900</integer>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>
